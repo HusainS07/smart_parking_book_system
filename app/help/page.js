@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import Head from "next/head";
-import { useSession } from "next-auth/react"; // For session management
+import { useSession } from "next-auth/react";
 
 export default function Help() {
   const { data: session, status } = useSession();
@@ -17,41 +16,6 @@ export default function Help() {
       setEmail(session.user.email || "");
     }
   }, [session]);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    if (!message.trim()) {
-      setError("Please write a message before submitting.");
-      setSuccess("");
-      return;
-    }
-
-    try {
-      const res = await fetch("/api/contact", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ name, email, query: message }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error || "Something went wrong");
-        setSuccess("");
-      } else {
-        setSuccess("✅ Message sent successfully!");
-        setError("");
-        setMessage("");
-      }
-    } catch (err) {
-      console.error(err);
-      setError("Failed to send message.");
-      setSuccess("");
-    }
-  };
 
   const faqs = [
     {
@@ -81,81 +45,106 @@ export default function Help() {
     },
   ];
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!message.trim()) {
+      setError("Please write a message before submitting.");
+      setSuccess("");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, query: message }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "Something went wrong");
+        setSuccess("");
+      } else {
+        setSuccess(data.answer);
+        setError("");
+        setMessage("");
+      }
+    } catch (err) {
+      setError("Failed to send message.");
+      setSuccess("");
+    }
+  };
+
   if (status === "loading") return <div>Loading...</div>;
 
   return (
-    <>
-      <Head>
-        <title>Help & Support</title>
-        <meta name="description" content="Help and Support Section" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      </Head>
+    <section className="max-w-5xl mx-auto px-4 py-16">
+      <h1 className="text-4xl font-bold text-blue-800 mb-12 text-center">
+        How can we assist you?
+      </h1>
 
-      <section className="help-container pt-24 px-4 max-w-screen-xl mx-auto">
-        <h2 className="text-4xl font-bold text-blue-800 mb-8 text-center">
-          How can we assist you?
+      {/* FAQ section */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
+        {faqs.map(({ question, answer }, i) => (
+          <div
+            key={i}
+            className="bg-gray-900 text-white p-6 rounded-xl shadow-lg hover:shadow-2xl transition-shadow duration-300"
+          >
+            <h3 className="text-yellow-400 text-2xl font-semibold mb-3">{question}</h3>
+            <p className="text-gray-300">{answer}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Contact Form */}
+      <div className="max-w-lg mx-auto bg-white p-8 rounded-xl shadow-lg">
+        <h2 className="text-3xl font-bold text-center text-blue-800 mb-6">
+          Ask a Question
         </h2>
 
-        {/* FAQ Section */}
-        <div className="faq flex flex-wrap justify-center gap-8 p-4">
-          {faqs.map((item, index) => (
-            <div
-              key={index}
-              className="question bg-gray-900 text-white p-6 rounded-xl w-72 text-center shadow-lg transition-all duration-300 ease-in-out transform hover:translate-y-2 hover:shadow-2xl"
-            >
-              <h3 className="text-yellow-500 text-2xl mb-2">
-                {item.question}
-              </h3>
-              <p className="text-gray-300">{item.answer}</p>
-            </div>
-          ))}
-        </div>
+        {success && (
+          <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
+            {success}
+          </div>
+        )}
+        {error && (
+          <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+            {error}
+          </div>
+        )}
 
-        {/* Contact Us Section */}
-        <section className="contact mt-12 p-8 bg-white rounded-xl shadow-lg max-w-lg mx-auto">
-          <h2 className="text-3xl font-bold text-center text-blue-800 mb-8">
-            Contact Us
-          </h2>
-
-          {success && <div className="text-green-500 mb-4">{success}</div>}
-          {error && <div className="text-red-500 mb-4">{error}</div>}
-
-          <form onSubmit={handleSubmit}>
-            <input
-              type="text"
-              placeholder="Your Name"
-              required
-              value={name}
-              disabled
-              name="name"
-              className="w-full p-3 mb-4 border border-gray-300 rounded-md text-lg"
-            />
-            <input
-              type="email"
-              placeholder="Your Email"
-              required
-              value={email}
-              disabled
-              name="email"
-              className="w-full p-3 mb-4 border border-gray-300 rounded-md text-lg"
-            />
-            <textarea
-              placeholder="Your Message"
-              rows="4"
-              required
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              className="w-full p-3 mb-4 border border-gray-300 rounded-md text-lg"
-            />
-            <button
-              type="submit"
-              className="w-full p-3 bg-blue-800 text-white font-semibold rounded-md hover:bg-blue-900 transition duration-300"
-            >
-              Send Message
-            </button>
-          </form>
-        </section>
-      </section>
-    </>
+        <form onSubmit={handleSubmit}>
+          <input
+            type="text"
+            value={name}
+            disabled
+            className="w-full p-3 mb-4 border border-gray-300 rounded-md bg-gray-100 text-gray-700"
+            placeholder="Your Name"
+          />
+          <input
+            type="email"
+            value={email}
+            disabled
+            className="w-full p-3 mb-4 border border-gray-300 rounded-md bg-gray-100 text-gray-700"
+            placeholder="Your Email"
+          />
+          <textarea
+            rows={5}
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="Type your question here..."
+            className="w-full p-3 mb-6 border border-gray-300 rounded-md resize-none focus:outline-blue-500"
+            required
+          />
+          <button
+            type="submit"
+            className="w-full bg-blue-800 text-white py-3 rounded-md font-semibold hover:bg-blue-900 transition-colors"
+          >
+            Submit
+          </button>
+        </form>
+      </div>
+    </section>
   );
 }
