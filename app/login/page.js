@@ -11,12 +11,16 @@ const Page = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
+  // Redirect after session is ready and user is authenticated
   useEffect(() => {
-    // Redirect to /book if already signed in
-    if (status === 'authenticated') {
-      router.push('/book');
+    if (status === 'authenticated' && session?.user?.role) {
+      if (session.user.role === 'admin') {
+        router.push('/admin_page');
+      } else {
+        router.push('/book');
+      }
     }
-  }, [status, router]);
+  }, [status, session, router]);
 
   const handleEmailPasswordLogin = async (e) => {
     e.preventDefault();
@@ -26,12 +30,21 @@ const Page = () => {
     }
 
     try {
-      // Use next-auth credentials provider for manual login
-      const res = await signIn('credentials', { email, password, callbackUrl: '/book' });
-      if (!res.ok) {
-        setError('Invalid credentials');
+      // Trigger signIn with redirect false to manually check response
+      const res = await signIn('credentials', {
+        email,
+        password,
+        redirect: false,
+      });
+
+      if (res.error) {
+        setError('Invalid email or password');
+      } else {
+        // After successful login, session will update and useEffect will redirect
+        setError('');
       }
     } catch (err) {
+      console.error(err);
       setError('An error occurred. Please try again.');
     }
   };
@@ -49,6 +62,7 @@ const Page = () => {
     return (
       <div className="text-center mt-20">
         <p>Signed in as <strong>{session.user.email}</strong></p>
+       
         <button
           onClick={() => signOut()}
           className="mt-4 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg"
@@ -68,7 +82,6 @@ const Page = () => {
           <input
             type="email"
             id="email"
-            name="email"
             placeholder="your@email.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -81,7 +94,6 @@ const Page = () => {
           <input
             type="password"
             id="password"
-            name="password"
             placeholder="********"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -103,7 +115,7 @@ const Page = () => {
       <button
         type="button"
         className={googleBtnClass}
-        onClick={() => signIn('google', { callbackUrl: '/book' })}
+        onClick={() => signIn('google')}
       >
         Sign in with Google
       </button>
@@ -112,7 +124,7 @@ const Page = () => {
       <button
         type="button"
         className={githubBtnClass}
-        onClick={() => signIn('github', { callbackUrl: '/book' })}
+        onClick={() => signIn('github')}
       >
         Sign in with GitHub
       </button>

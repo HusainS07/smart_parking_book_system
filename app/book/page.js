@@ -12,6 +12,7 @@ export default function BookingPage() {
   const [location, setLocation] = useState('mumbai');
   const [selectedSlot, setSelectedSlot] = useState(null);
 
+  // Fetch slots on location change
   useEffect(() => {
     async function fetchSlots() {
       try {
@@ -28,11 +29,11 @@ export default function BookingPage() {
     fetchSlots();
   }, [location]);
 
+  // Fetch wallet balance
   useEffect(() => {
     async function fetchWallet() {
       if (session?.user) {
         try {
-          // Updated the API call to use email instead of username
           const res = await axios.get(`/api/wallet?username=${session.user.name}`);
           setWallet(res.data.balance);
         } catch (err) {
@@ -44,25 +45,32 @@ export default function BookingPage() {
     fetchWallet();
   }, [session]);
 
+  // ✅ Wallet Booking Logic
   const handleWalletBooking = async (slot) => {
     if (!session?.user) return alert("Please log in.");
 
     if (wallet >= slot.amount) {
       try {
         const res = await axios.post("/api/wallet/deduct", {
-          username: session.user.name, // Pass email to backend for wallet deduction
+          username: session.user.name,
           amount: slot.amount,
         });
+
         await axios.post("/api/slots/book", {
           slotid: slot.slotid,
-          username: session.user.name, // Pass the username
+          bookedby: session.user.email,
         });
-        
+
+        // ✅ Update wallet balance
         setWallet(res.data.newBalance);
+
+        // ✅ Remove the booked slot from list
+        setSlots(prev => prev.filter(s => s.slotid !== slot.slotid));
+
         alert(`Booked slot ${slot.slotid} via wallet. New balance: ₹${res.data.newBalance}`);
         setSelectedSlot(null);
       } catch (err) {
-        console.error("Booking failed:", err);
+        console.error("Booking failed:", err?.response?.data || err.message);
         alert("Booking failed.");
       }
     } else {
@@ -70,8 +78,12 @@ export default function BookingPage() {
     }
   };
 
-  const handleUPIBooking = (slot) => {
+  // ✅ UPI Booking Logic
+  const handleUPIBooking = async (slot) => {
     alert(`Slot ${slot.slotid} booked using UPI!`);
+
+    // Simulate booking via UPI (remove from list)
+    setSlots(prev => prev.filter(s => s.slotid !== slot.slotid));
     setSelectedSlot(null);
   };
 

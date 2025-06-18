@@ -1,5 +1,6 @@
 import dbConnect from "@/lib/dbConnect";
 import User from "@/models/user";
+import Wallet from "@/models/wallet"; // ✅ Import Wallet model
 
 export async function POST(req) {
   try {
@@ -32,8 +33,16 @@ export async function POST(req) {
 
     await newUser.save();
 
+    // ✅ Create a wallet for the new user
+    const newWallet = new Wallet({
+      username: name, // using name extracted from email
+      balance: 0,     // optional since default is 0
+    });
+
+    await newWallet.save();
+
     return new Response(
-      JSON.stringify({ message: "User registered successfully" }),
+      JSON.stringify({ message: "User registered successfully and wallet created" }),
       { status: 201 }
     );
   } catch (error) {

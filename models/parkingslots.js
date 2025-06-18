@@ -9,7 +9,11 @@ const parkingSlotSchema = new Schema({
   alloted: { type: Boolean, required: true, default: false },
   location: { type: String, required: true },
   paymentid: { type: String },
-  bookedby : { type: String }
+  bookedby: { type: String },
+
+  // ✅ NEW FIELDS
+  lotId: { type: Schema.Types.ObjectId, ref: 'ParkingLot' },  // Optional if you use lots
+  isApproved: { type: Boolean, default: false }              // Needed for admin filtering
 });
 
-export default mongoose.models.ParkingSlot || model('ParkingSlot', parkingSlotSchema, 'ParkingSlot');  // Collection name "parkingslots"
+export default mongoose.models.ParkingSlot || model('ParkingSlot', parkingSlotSchema, 'ParkingSlot');

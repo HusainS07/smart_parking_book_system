@@ -45,10 +45,14 @@ export default function Wallet() {
   };
 
   return (
-    <div className="p-6 max-w-md mx-auto bg-white rounded-xl shadow-md space-y-6">
-      <h2 className="text-2xl font-semibold">Wallet</h2>
-      <p><strong>Username:</strong> {username}</p>
-      <p><strong>Balance:</strong> ₹{balance.toFixed(2)}</p>
+    <div className="m-12 p-6 max-w-md mx-auto bg-white rounded-xl shadow-md space-y-5">
+      <h2 className="text-2xl font-semibold text-center">Wallet</h2>
+      <p>
+        <strong>Username:</strong> {username}
+      </p>
+      <p>
+        <strong>Balance:</strong> ₹{balance.toFixed(2)}
+      </p>
 
       <div>
         <input
@@ -58,16 +62,18 @@ export default function Wallet() {
           placeholder="Enter amount to top up"
           className="border p-2 rounded w-full"
         />
-        <button
-          onClick={handleTopUp}
-          className="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          disabled={loading}
-        >
-          {loading ? "Processing..." : "Top Up"}
-        </button>
+        <div className="flex justify-center">
+          <button
+            onClick={handleTopUp}
+            className="mt-5 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            disabled={loading}
+          >
+            {loading ? "Processing..." : "Top Up"}
+          </button>
+        </div>
       </div>
 
-      {message && <p className="text-sm text-green-600">{message}</p>}
+      {message && <p className="text-sm text-green-600 text-center">{message}</p>}
     </div>
   );
 }
