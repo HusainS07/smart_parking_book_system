@@ -1,10 +1,10 @@
-import NextAuth from "next-auth";
-import GoogleProvider from "next-auth/providers/google";
-import GitHubProvider from "next-auth/providers/github";
-import CredentialsProvider from "next-auth/providers/credentials";
-import mongoose from "mongoose";
-import User from "@/models/user";
-import Wallet from "@/models/wallet";
+import NextAuth from 'next-auth';
+import CredentialsProvider from 'next-auth/providers/credentials';
+import GoogleProvider from 'next-auth/providers/google';
+import GitHubProvider from 'next-auth/providers/github';
+import mongoose from 'mongoose';
+import User from '@/models/user';
+import Wallet from '@/models/wallet';
 
 export const authOptions = {
   providers: [
@@ -19,91 +19,84 @@ export const authOptions = {
     }),
 
     CredentialsProvider({
-      name: "Credentials",
+      name: 'Credentials',
       credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
+        email: { label: 'Email', type: 'email' },
+        password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
         await mongoose.connect(process.env.MONGODB_URI);
+        console.log('🔐 Login attempt:', credentials);
 
         const user = await User.findOne({ email: credentials.email });
 
-        if (!user || user.password !== credentials.password) {
-          throw new Error("Invalid email or password");
+        if (!user) {
+          console.log('❌ User not found');
+          throw new Error('Invalid email or password');
         }
 
-        // ✅ Add role to the returned object
+        if (user.password !== credentials.password) {
+          console.log('❌ Password mismatch');
+          throw new Error('Invalid email or password');
+        }
+
+        console.log('✅ Authorized');
         return {
-          id: user._id,
+          id: user._id.toString(),
           name: user.name,
           email: user.email,
-          role: user.role || "user", // default if not defined
+          role: user.role || 'user',
         };
       },
     }),
   ],
 
   session: {
-    strategy: "jwt",
+    strategy: 'jwt',
   },
 
   callbacks: {
-    async signIn({ user, account }) {
-      await mongoose.connect(process.env.MONGODB_URI);
-
-      const existingUser = await User.findOne({ email: user.email });
-
-      if (!existingUser) {
-        const name = user.name || user.email.split("@")[0];
-
-        // ✅ Set default role = 'user' for OAuth sign-in
-        const newUser = await User.create({
-          email: user.email,
-          name,
-          password: null,
-          role: "user", // ✅ default role for Google/GitHub
-        });
-
-        await Wallet.create({
-          username: name,
-          balance: 0,
-        });
-      } else {
-        const walletExists = await Wallet.findOne({ username: existingUser.name });
-
-        if (!walletExists) {
-          await Wallet.create({
-            username: existingUser.name,
-            balance: 0,
-          });
-        }
-      }
-
-      return true;
-    },
-
-    async jwt({ token, user, account }) {
+    async jwt({ token, user }) {
       if (user) {
         token.user = {
           id: user.id,
           name: user.name,
           email: user.email,
-          role: user.role || "user", // ✅ Set role in token
+          role: user.role || 'user',
         };
-      } else {
-        // ✅ If already logged in and token exists, fetch role from DB
-        await mongoose.connect(process.env.MONGODB_URI);
-        const dbUser = await User.findOne({ email: token.user?.email });
-        token.user.role = dbUser?.role || "user";
       }
-
       return token;
     },
 
     async session({ session, token }) {
-      session.user = token.user; // ✅ Role available in session.user.role
+      if (token?.user) {
+        session.user = token.user;
+      }
       return session;
+    },
+
+    async signIn({ user }) {
+      await mongoose.connect(process.env.MONGODB_URI);
+
+      const existing = await User.findOne({ email: user.email });
+
+      if (!existing) {
+        const name = user.name || user.email.split('@')[0];
+        const newUser = await User.create({
+          email: user.email,
+          name,
+          password: null,
+          role: 'user',
+        });
+
+        await Wallet.create({
+          username: name,
+          email: user.email,
+          balance: 0,
+        });
+      }
+
+      return true;
     },
   },
 

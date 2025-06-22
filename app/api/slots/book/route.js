@@ -1,37 +1,51 @@
-import dbConnect from "@/lib/dbConnect";
+import mongoose from "mongoose";
 import ParkingSlot from "@/models/parkingslots";
 
 export async function POST(req) {
-  await dbConnect();
-
   try {
     const body = await req.json();
-    const { slotid, bookedby } = body;
+    const { email, slotid } = body;
 
-    // 🔍 Validate input
-    if (!slotid || !bookedby) {
-      return new Response("Missing slotid or bookedby", { status: 400 });
+    // ✅ Step 1: Validate input
+    if (!email || !slotid) {
+      console.error("❌ Missing email or slotid:", { email, slotid });
+      return new Response(JSON.stringify({ error: "Missing email or slotid" }), {
+        status: 400,
+      });
     }
 
-    // 🔍 Find slot by slotid
+    await mongoose.connect(process.env.MONGODB_URI);
+
+    // ✅ Step 2: Check if slot exists
     const slot = await ParkingSlot.findOne({ slotid });
 
     if (!slot) {
-      return new Response("Parking slot not found", { status: 404 });
+      console.error("❌ Slot not found:", slotid);
+      return new Response(JSON.stringify({ error: "Slot not found" }), {
+        status: 400,
+      });
     }
 
-    if (slot.alloted) {
-      return new Response("Parking slot already booked", { status: 400 });
+    // ✅ Step 3: Check if already booked
+    if (slot.alloted === true) {
+      console.error("❌ Slot already booked:", slotid);
+      return new Response(JSON.stringify({ error: "Slot already booked" }), {
+        status: 400,
+      });
     }
 
-    // ✅ Book slot
+    // ✅ Step 4: Update slot
     slot.alloted = true;
-    slot.bookedby = bookedby;
+    slot.email = email;
     await slot.save();
 
-    return new Response("Parking slot successfully booked", { status: 200 });
-  } catch (error) {
-    console.error("Booking error:", error);
-    return new Response("Error while booking parking slot", { status: 500 });
+    console.log("✅ Slot booked:", slotid);
+    return new Response(JSON.stringify({ success: true, slot }), { status: 200 });
+
+  } catch (err) {
+    console.error("❌ Internal server error:", err);
+    return new Response(JSON.stringify({ error: "Internal Server Error" }), {
+      status: 500,
+    });
   }
 }

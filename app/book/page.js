@@ -5,22 +5,31 @@ import axios from 'axios';
 import { useSession } from 'next-auth/react';
 
 export default function BookingPage() {
-  const { data: session, status } = useSession();
+  const { data: session } = useSession();
   const [slots, setSlots] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [wallet, setWallet] = useState(0);
   const [location, setLocation] = useState('mumbai');
   const [selectedSlot, setSelectedSlot] = useState(null);
+  const [selectedHour, setSelectedHour] = useState(null);
+  const [currentHour, setCurrentHour] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // Fetch slots on location change
+  const hourOptions = Array.from({ length: 24 }, (_, i) => i);
+
+  // Fetch slots and current hour from backend
   useEffect(() => {
     async function fetchSlots() {
       try {
         setLoading(true);
         const res = await axios.get(`/api/slots?location=${location}`);
-        setSlots(res.data);
-      } catch (error) {
-        console.error('Failed to fetch slots:', error);
+        const { slots, currentHour } = res.data;
+
+        setSlots(slots);
+        setCurrentHour(currentHour);
+      } catch (err) {
+        console.error('Error fetching slots:', err);
+        setSlots([]);
+        setCurrentHour(new Date().getHours()); // fallback
       } finally {
         setLoading(false);
       }
@@ -32,12 +41,12 @@ export default function BookingPage() {
   // Fetch wallet balance
   useEffect(() => {
     async function fetchWallet() {
-      if (session?.user) {
+      if (session?.user?.email) {
         try {
-          const res = await axios.get(`/api/wallet?username=${session.user.name}`);
+          const res = await axios.get(`/api/wallet/amount?email=${session.user.email}`);
           setWallet(res.data.balance);
         } catch (err) {
-          console.error("Wallet fetch error:", err);
+          console.error('Wallet fetch error:', err);
         }
       }
     }
@@ -45,110 +54,179 @@ export default function BookingPage() {
     fetchWallet();
   }, [session]);
 
-  // ✅ Wallet Booking Logic
+  // Handle wallet payment
   const handleWalletBooking = async (slot) => {
-    if (!session?.user) return alert("Please log in.");
+    if (selectedHour === null) {
+      alert('Please select an hour');
+      return;
+    }
 
-    if (wallet >= slot.amount) {
-      try {
-        const res = await axios.post("/api/wallet/deduct", {
-          username: session.user.name,
-          amount: slot.amount,
-        });
+    if (!session?.user) {
+      alert('Please log in');
+      return;
+    }
 
-        await axios.post("/api/slots/book", {
-          slotid: slot.slotid,
-          bookedby: session.user.email,
-        });
+    if (wallet < slot.amount) {
+      alert('Insufficient wallet balance');
+      return;
+    }
 
-        // ✅ Update wallet balance
-        setWallet(res.data.newBalance);
+    try {
+      const res = await axios.post('/api/wallet/deduct', {
+        email: session.user.email,
+        amount: slot.amount,
+      });
 
-        // ✅ Remove the booked slot from list
-        setSlots(prev => prev.filter(s => s.slotid !== slot.slotid));
+      await axios.post('/api/slots/book', {
+        email: session.user.email,
+        slotid: slot.slotid,
+        hour: selectedHour,
+      });
 
-        alert(`Booked slot ${slot.slotid} via wallet. New balance: ₹${res.data.newBalance}`);
-        setSelectedSlot(null);
-      } catch (err) {
-        console.error("Booking failed:", err?.response?.data || err.message);
-        alert("Booking failed.");
-      }
-    } else {
-      alert("Insufficient wallet balance.");
+      setWallet(res.data.newBalance);
+
+      // Update local slot state
+      setSlots((prev) =>
+        prev.map((s) =>
+          s.slotid === slot.slotid
+            ? {
+                ...s,
+                bookedHours: [...(s.bookedHours || []), selectedHour],
+              }
+            : s
+        )
+      );
+
+      alert(`✅ Booked slot ${slot.slotid} at ${selectedHour}:00. New balance: ₹${res.data.newBalance}`);
+      setSelectedSlot(null);
+      setSelectedHour(null);
+    } catch (err) {
+      console.error('Booking error:', err);
+      alert('❌ Booking failed');
     }
   };
 
-  // ✅ UPI Booking Logic
+  // Handle UPI booking
   const handleUPIBooking = async (slot) => {
-    alert(`Slot ${slot.slotid} booked using UPI!`);
+    if (selectedHour === null) {
+      alert('Please select an hour');
+      return;
+    }
 
-    // Simulate booking via UPI (remove from list)
-    setSlots(prev => prev.filter(s => s.slotid !== slot.slotid));
+    // Simulate UPI booking (you can integrate Razorpay/Stripe here)
+    alert(`📲 Booked slot ${slot.slotid} for ${selectedHour}:00 using UPI!`);
+
+    setSlots((prev) =>
+      prev.map((s) =>
+        s.slotid === slot.slotid
+          ? { ...s, bookedHours: [...(s.bookedHours || []), selectedHour] }
+          : s
+      )
+    );
+
     setSelectedSlot(null);
+    setSelectedHour(null);
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold text-center mb-4">Available Parking Slots</h1>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 p-6">
+      <div className="max-w-5xl mx-auto">
+        <h1 className="text-4xl font-extrabold text-center text-blue-800 mb-8">🚗 Book Your Parking Slot</h1>
 
-        <div className="mb-6 flex justify-center">
+        <div className="flex flex-col items-center space-y-4 mb-6 sm:flex-row sm:justify-between sm:space-y-0">
           <select
             value={location}
             onChange={(e) => setLocation(e.target.value)}
-            className="border p-2 rounded-md text-lg shadow"
+            className="border-2 border-blue-400 bg-white px-4 py-2 rounded-md text-lg shadow-md focus:outline-none focus:ring-2 focus:ring-blue-300"
           >
             <option value="mumbai">Mumbai</option>
             <option value="delhi">Delhi</option>
             <option value="bangalore">Bangalore</option>
             <option value="pune">Pune</option>
           </select>
+
+          <p className="text-blue-700 font-semibold">
+            💰 Wallet Balance: <span className="text-green-600">₹{wallet}</span>
+          </p>
         </div>
 
-        <p className="text-center text-gray-700 mb-4">
-          Wallet Balance: ₹{wallet}
-        </p>
-
         {loading ? (
-          <p className="text-center">Loading slots...</p>
+          <p className="text-center text-lg text-gray-600">Loading slots...</p>
         ) : slots.length === 0 ? (
-          <p className="text-center text-red-500">No slots found in {location}</p>
+          <p className="text-center text-red-500 text-lg">No slots found in {location}.</p>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {slots.map((slot) => (
-              <div key={slot._id} className="bg-white p-4 rounded-lg shadow border">
-                <h2 className="text-lg font-bold text-blue-700">Slot ID: {slot.slotid}</h2>
-                <p>Amount: ₹{slot.amount}</p>
-                <p>Created: {new Date(slot.createdat).toLocaleDateString()}</p>
-                <p className="mt-2 text-green-600 font-semibold">Available</p>
+              <div
+                key={slot._id}
+                className="bg-white p-5 rounded-xl shadow-lg border hover:shadow-2xl transition-all duration-300"
+              >
+                <h2 className="text-xl font-bold text-indigo-700 mb-2">🆔 Slot: {slot.slotid}</h2>
+                <p className="mb-1">💸 Amount: ₹{slot.amount}</p>
+                <p className="mb-1">📅 Created: {new Date(slot.createdat).toLocaleDateString()}</p>
+                <p className="mt-2 text-green-600 font-medium">
+                  ✅ Available Hours: {24 - (slot.bookedHours?.length || 0)}
+                </p>
 
                 {selectedSlot === slot._id ? (
                   <div className="mt-4 space-y-2">
+                    <select
+                      className="w-full p-2 rounded-md border-2 border-gray-300 focus:border-blue-400 focus:outline-none"
+                      value={selectedHour ?? ''}
+                      onChange={(e) => setSelectedHour(Number(e.target.value))}
+                    >
+                      <option value="">🕓 Select Hour (0–23)</option>
+                      {hourOptions.map((h) => (
+                        <option
+                          key={h}
+                          value={h}
+                          disabled={
+                            slot.bookedHours?.includes(h) || h < currentHour
+                          }
+                        >
+                          {`${h}:00 - ${h + 1}:00`}
+                          {h < currentHour
+                            ? ' (Expired)'
+                            : slot.bookedHours?.includes(h)
+                            ? ' (Booked)'
+                            : ''}
+                        </option>
+                      ))}
+                    </select>
+
                     <button
-                      className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded"
+                      className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-md transition"
                       onClick={() => handleWalletBooking(slot)}
                     >
-                      Pay with Wallet
+                      💼 Pay with Wallet
                     </button>
+
                     <button
-                      className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 rounded"
+                      className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 rounded-md transition"
                       onClick={() => handleUPIBooking(slot)}
                     >
-                      Pay with UPI
+                      📲 Pay with UPI
                     </button>
+
                     <button
-                      className="w-full bg-gray-300 hover:bg-gray-400 text-black py-2 rounded"
-                      onClick={() => setSelectedSlot(null)}
+                      className="w-full bg-gray-300 hover:bg-gray-400 text-black font-medium py-2 rounded-md"
+                      onClick={() => {
+                        setSelectedSlot(null);
+                        setSelectedHour(null);
+                      }}
                     >
-                      Cancel
+                      ❌ Cancel
                     </button>
                   </div>
                 ) : (
                   <button
-                    className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded"
-                    onClick={() => setSelectedSlot(slot._id)}
+                    className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-md transition"
+                    onClick={() => {
+                      setSelectedSlot(slot._id);
+                      setSelectedHour(null);
+                    }}
                   >
-                    Book Now
+                    📅 Book Now
                   </button>
                 )}
               </div>

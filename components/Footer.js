@@ -11,7 +11,7 @@ const Footer = () => {
         {/* Contact Section */}
         <div className="flex-1 min-w-[250px] max-w-xs">
           <h4 className="text-lg font-bold text-white mb-3">Contact Us</h4>
-          <p>Phone: +91 9763542316</p>
+          <p>Phone: +91 8779918798</p>
           <p>
             Email:{" "}
             <a
@@ -44,13 +44,12 @@ const Footer = () => {
 
         {/* Group Members */}
         <div className="flex-1 min-w-[250px] max-w-xs">
-          <h4 className="text-lg font-bold text-white mb-3">Group Members</h4>
+          <h4 className="text-lg font-bold text-white mb-3">Made by</h4>
           <ul className="list-none space-y-1">
-            <li>Sakshi Mahale</li>
-            <li>Bhakti Baraf</li>
+           
+        
             <li>Husain Sakarwala</li>
-            <li>Aditya Kulkarni</li>
-            <li>Akash Patil</li>
+        
           </ul>
         </div>
       </div>

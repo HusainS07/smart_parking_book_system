@@ -37,12 +37,12 @@ const Page = () => {
         redirect: false,
       });
 
-      if (res.error) {
-        setError('Invalid email or password');
-      } else {
-        // After successful login, session will update and useEffect will redirect
-        setError('');
-      }
+      if (!res || !res.ok) {
+  setError('Invalid email or password');
+} else {
+  setError('');
+}
+
     } catch (err) {
       console.error(err);
       setError('An error occurred. Please try again.');

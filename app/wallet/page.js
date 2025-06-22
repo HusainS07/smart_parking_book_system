@@ -14,7 +14,7 @@ export default function Wallet() {
   useEffect(() => {
     const fetchWallet = async () => {
       try {
-        const res = await axios.get("/api/wallet");
+        const res = await axios.get("/api/wallet/amount");
         const { username, balance } = res.data;
         setUsername(username);
         setBalance(balance);

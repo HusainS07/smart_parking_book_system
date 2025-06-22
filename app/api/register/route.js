@@ -25,26 +25,27 @@ export async function POST(req) {
 
     const name = email.split("@")[0];
 
+    // ✅ Create the user
     const newUser = new User({
       name,
       email,
       password
     });
-
     await newUser.save();
 
-    // ✅ Create a wallet for the new user
+    // ✅ Create the wallet (using email for querying, username for display)
     const newWallet = new Wallet({
-      username: name, // using name extracted from email
-      balance: 0,     // optional since default is 0
+      username: name,   // for display
+      email: email,     // for querying
+      balance: 0,
     });
-
     await newWallet.save();
 
     return new Response(
       JSON.stringify({ message: "User registered successfully and wallet created" }),
       { status: 201 }
     );
+
   } catch (error) {
     console.error("Registration Error:", error);
     return new Response(

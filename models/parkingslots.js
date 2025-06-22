@@ -10,10 +10,15 @@ const parkingSlotSchema = new Schema({
   location: { type: String, required: true },
   paymentid: { type: String },
   bookedby: { type: String },
+  lotId: { type: Schema.Types.ObjectId, ref: 'ParkingLot' },
+  isApproved: { type: Boolean, default: false },
 
-  // ✅ NEW FIELDS
-  lotId: { type: Schema.Types.ObjectId, ref: 'ParkingLot' },  // Optional if you use lots
-  isApproved: { type: Boolean, default: false }              // Needed for admin filtering
+  //  DATE-WISE BOOKING HOURS
+  bookedHours: {
+    type: Map,
+    of: [Number], // keys = "2024-06-22", value = [9, 10, 11]
+    default: {},
+  },
 });
 
 export default mongoose.models.ParkingSlot || model('ParkingSlot', parkingSlotSchema, 'ParkingSlot');

@@ -25,6 +25,7 @@ export async function POST(req) {
       amount: lot.pricePerHour,
       alloted: false,
       location: lot.city,
+      isApproved: true, // Mark as approved
       paymentid: null,
       lotId: lot._id,
     }));
