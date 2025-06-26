@@ -35,13 +35,13 @@ export default function ProfilePage() {
     if (!session?.user?.email) return;
 
     if (activeTab === 'bookings') {
-      axios.get(`/api/bookings/${session.user.email}`).then((res) => {
+      axios.get(`/api/bookings/${encodeURIComponent(session.user.email)}`).then((res) => {
         setBookings(res.data || []);
       });
     }
 
     if (activeTab === 'lots') {
-      axios.get(`/api/lots?email=${session.user.email}`).then((res) => {
+      axios.get(`/api/lots?email=${encodeURIComponent(session.user.email)}`).then((res) => {
         setLots(res.data || []);
       });
     }
@@ -64,7 +64,7 @@ export default function ProfilePage() {
     if (imageFile) form.append('image', imageFile);
 
     try {
-      const res = await axios.put(`/api/profile/${formData.email}`, form);
+      const res = await axios.put(`/api/profile/${encodeURIComponent(formData.email)}`, form);
       setUser(res.data);
       setEditing(false);
     } catch (err) {
@@ -95,7 +95,7 @@ export default function ProfilePage() {
         totalSpots: '',
         pricePerHour: '',
       });
-      const res = await axios.get(`/api/lots?email=${session.user.email}`);
+      const res = await axios.get(`/api/lots?email=${encodeURIComponent(session.user.email)}`);
       setLots(res.data);
     } catch (err) {
       console.error('Failed to add lot:', err);
