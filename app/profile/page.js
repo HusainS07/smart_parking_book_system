@@ -24,7 +24,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (session?.user?.email) {
-      axios.get(`/api/user/${session.user.email}`).then((res) => {
+      axios.get(`/api/user/${encodeURIComponent(session.user.email)}`).then((res) => {
         setUser(res.data);
         setFormData(res.data);
       });
