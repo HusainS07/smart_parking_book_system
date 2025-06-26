@@ -1,6 +1,8 @@
 "use client";
+
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function Help() {
   const { data: session, status } = useSession();
@@ -9,6 +11,7 @@ export default function Help() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [expandedIndex, setExpandedIndex] = useState(null);
 
   useEffect(() => {
     if (session) {
@@ -76,23 +79,42 @@ export default function Help() {
     }
   };
 
-  if (status === "loading") return <div>Loading...</div>;
+  const toggleFAQ = (index) => {
+    setExpandedIndex((prev) => (prev === index ? null : index));
+  };
+
+  if (status === "loading") return <div className="text-center py-20">Loading...</div>;
 
   return (
-    <section className="max-w-5xl mx-auto px-4 py-16">
+    <section className="max-w-6xl mx-auto px-4 py-16">
       <h1 className="text-4xl font-bold text-blue-800 mb-12 text-center">
         How can we assist you?
       </h1>
 
-      {/* FAQ section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
+      {/* FAQ Accordion */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-16">
         {faqs.map(({ question, answer }, i) => (
-          <div
-            key={i}
-            className="bg-gray-900 text-white p-6 rounded-xl shadow-lg hover:shadow-2xl transition-shadow duration-300"
-          >
-            <h3 className="text-yellow-400 text-2xl font-semibold mb-3">{question}</h3>
-            <p className="text-gray-300">{answer}</p>
+          <div key={i} className="bg-white shadow rounded-lg overflow-hidden">
+            <button
+              onClick={() => toggleFAQ(i)}
+              className="w-full text-left p-5 text-lg font-semibold flex justify-between items-center text-blue-700 hover:bg-blue-50 transition"
+            >
+              {question}
+              <span>{expandedIndex === i ? "−" : "+"}</span>
+            </button>
+            <AnimatePresence>
+              {expandedIndex === i && (
+                <motion.div
+                  className="px-5 pb-5 text-gray-700"
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.25 }}
+                >
+                  <p>{answer}</p>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         ))}
       </div>
@@ -104,12 +126,12 @@ export default function Help() {
         </h2>
 
         {success && (
-          <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
+          <div className="mb-4 p-3 rounded text-green-700 bg-green-100 border border-green-400">
             {success}
           </div>
         )}
         {error && (
-          <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+          <div className="mb-4 p-3 rounded text-red-700 bg-red-100 border border-red-400">
             {error}
           </div>
         )}
@@ -119,14 +141,14 @@ export default function Help() {
             type="text"
             value={name}
             disabled
-            className="w-full p-3 mb-4 border border-gray-300 rounded-md bg-gray-100 text-gray-700"
+            className="w-full mb-4 p-3 border rounded bg-gray-100 text-gray-600"
             placeholder="Your Name"
           />
           <input
             type="email"
             value={email}
             disabled
-            className="w-full p-3 mb-4 border border-gray-300 rounded-md bg-gray-100 text-gray-700"
+            className="w-full mb-4 p-3 border rounded bg-gray-100 text-gray-600"
             placeholder="Your Email"
           />
           <textarea
@@ -134,12 +156,12 @@ export default function Help() {
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             placeholder="Type your question here..."
-            className="w-full p-3 mb-6 border border-gray-300 rounded-md resize-none focus:outline-blue-500"
+            className="w-full p-3 mb-6 border rounded resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
             required
           />
           <button
             type="submit"
-            className="w-full bg-blue-800 text-white py-3 rounded-md font-semibold hover:bg-blue-900 transition-colors"
+            className="w-full bg-blue-700 hover:bg-blue-800 text-white py-3 rounded font-semibold transition"
           >
             Submit
           </button>

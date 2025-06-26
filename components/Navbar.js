@@ -18,7 +18,7 @@ const Navbar = () => {
 
         {/* Logo/Title */}
         <div className="text-xl font-bold">
-          <Link href="/" className="hover:underline cursor-pointer">
+          <Link href="/" className="mr-2 hover:underline cursor-pointer">
             SmartPark
           </Link>
         </div>

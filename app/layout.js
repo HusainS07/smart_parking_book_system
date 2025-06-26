@@ -18,19 +18,22 @@ export const metadata = {
   title: "SMART PARKING BOOKER",
   description: "Book your parking smartly",
 };
-
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`min-h-screen flex flex-col ${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <SessionWrapper>
-        <Navbar/>
-        {children}
-        <Footer/>
+          <Navbar />
+          
+          {/* Make main content grow to push footer down */}
+          <main className="flex-grow">
+            {children}
+          </main>
+
+          <Footer />
         </SessionWrapper>
-       
       </body>
     </html>
   );

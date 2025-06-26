@@ -1,61 +1,67 @@
-import Head from "next/head";
+'use client';
+import Head from 'next/head';
 
-export default function Home() {
-  const TeamMember = ({ name, rollNumber, role }) => {
-    return (
-      <div className="team-member bg-gray-900 text-white p-6 rounded-xl w-72 text-center shadow-lg transition-all duration-300 ease-in-out transform hover:translate-y-2 hover:shadow-2xl">
-        <h3 className="text-yellow-500 text-2xl mb-2">{name}</h3>
-        <p>Roll Number: {rollNumber}</p>
-        <p>Role: {role}</p>
-        <p className="college text-yellow-500 font-semibold">
-          Veermata Jijabai Technological Institute
-        </p>
-        <p className="degree text-white">B.Tech in Computer Engineering</p>
-      </div>
-    );
-  };
-
+export default function AboutUs() {
   return (
     <>
       <Head>
-        <title>About Us</title>
-        <meta name="description" content="Meet our team" />
+        <title>About Us | SmartPark</title>
+        <meta name="description" content="Learn about the vision and the founder of SmartPark" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       </Head>
 
-      {/* About Container */}
-      <section className="about-container pt-24 px-4 max-w-screen-xl mx-auto">
-        <h2 className="text-4xl font-bold text-blue-800 mb-8 text-center">
-          Meet Our Team
-        </h2>
+      <section className="pt-24 px-6 max-w-5xl mx-auto text-white">
+        <div className="bg-gradient-to-b from-[#0c4a6e] to-[#01203c] p-10 rounded-3xl shadow-lg">
+          {/* Company Name & Tagline */}
+          <h1 className="text-4xl font-bold text-center mb-6 text-blue-200">
+            The SmartPark Group
+          </h1>
+          <p className="text-center text-lg mb-10 text-blue-100">
+            Empowering Smart Cities — One Parking Spot at a Time
+          </p>
 
-        {/* Team Section */}
-        <div className="team flex flex-wrap justify-center gap-8 p-4">
-          <TeamMember
-            name="Akash Patil"
-            rollNumber="241070901"
-            role="Frontend"
-          />
-          <TeamMember
-            name="Bhakti Baraf"
-            rollNumber="241071907"
-            role="Frontend"
-          />
-          <TeamMember
-            name="Sakshi Mahale"
-            rollNumber="241071905"
-            role="Frontend"
-          />
-          <TeamMember
-            name="Aditya Kulkarni"
-            rollNumber="241070908"
-            role="Backend"
-          />
-          <TeamMember
-            name="Mohamed Husain Sakarwala"
-            rollNumber="241070904"
-            role="Backend"
-          />
+          {/* Founder Section */}
+          <div className="flex flex-col md:flex-row items-center gap-8">
+            <img
+              src="/founder.jpg"
+              alt="Founder"
+              className="w-40 h-40 rounded-full object-cover border-4 border-blue-500 shadow-md"
+            />
+            <div>
+              <h2 className="text-2xl font-semibold text-yellow-400">Mohamed Husain Sakarwala</h2>
+              <p className="text-md text-blue-100 mb-2">Founder & CEO, SmartPark</p>
+              <p className="text-sm text-white leading-relaxed">
+                An electronics engineer turned smart-tech innovator, Husain is the visionary behind
+                SmartPark. With a passion for integrating IoT, embedded systems, and seamless user
+                experience, he strives to solve one of the biggest urban headaches — parking.
+              </p>
+              <p className="text-sm text-white mt-2">
+                Alumni of <span className="font-semibold text-blue-300">Veermata Jijabai Technological Institute</span>, 
+                he brings together technical expertise and a strong sense of public good to develop smart infrastructure solutions.
+              </p>
+            </div>
+          </div>
+
+          {/* Vision Section */}
+          <div className="mt-10">
+            <h3 className="text-xl font-semibold text-blue-200 mb-2">Our Vision</h3>
+            <p className="text-white text-sm leading-relaxed">
+              At SmartPark, we aim to revolutionize urban parking through data-driven systems,
+              real-time availability, and seamless booking experiences. Our goal is to help build
+              smarter, greener, and more efficient cities — starting with parking.
+            </p>
+          </div>
+
+          {/* Mission Section */}
+          <div className="mt-6">
+            <h3 className="text-xl font-semibold text-blue-200 mb-2">Our Mission</h3>
+            <ul className="list-disc ml-6 text-white text-sm space-y-1">
+              <li>Reduce traffic congestion caused by inefficient parking.</li>
+              <li>Empower citizens to earn from unused spaces with zero hassle.</li>
+              <li>Partner with municipalities for smart urban planning.</li>
+              <li>Make parking smarter, faster, and more sustainable.</li>
+            </ul>
+          </div>
         </div>
       </section>
     </>

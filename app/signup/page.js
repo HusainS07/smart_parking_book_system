@@ -50,15 +50,15 @@ const SignUp = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="w-full max-w-md p-8 bg-white rounded-xl shadow-lg">
-        <h2 className="text-3xl font-bold text-center mb-6">Create an Account</h2>
+    <div className="min-h-screen flex items-center justify-center bg-white-80 px-4">
+      <div className="w-full max-w-md p-8 bg-white rounded-xl shadow-xl">
+        <h2 className="text-3xl font-bold text-center mb-6 text-[#003049]">Create an Account</h2>
 
         {error && <p className="text-red-600 text-sm text-center mb-4">{error}</p>}
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium mb-1">Email</label>
+            <label htmlFor="email" className="block text-sm font-medium mb-1 text-[#003049]">Email</label>
             <input
               type="email"
               name="email"
@@ -66,13 +66,13 @@ const SignUp = () => {
               required
               value={formData.email}
               onChange={handleChange}
-              className="w-full border border-gray-300 px-4 py-2 rounded-md focus:ring focus:ring-indigo-200 focus:outline-none"
+              className="w-full border border-gray-300 px-4 py-2 rounded-md focus:ring focus:ring-[#2A6F97] focus:outline-none"
               placeholder="you@example.com"
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium mb-1">Password</label>
+            <label htmlFor="password" className="block text-sm font-medium mb-1 text-[#003049]">Password</label>
             <input
               type="password"
               name="password"
@@ -80,13 +80,13 @@ const SignUp = () => {
               required
               value={formData.password}
               onChange={handleChange}
-              className="w-full border border-gray-300 px-4 py-2 rounded-md focus:ring focus:ring-indigo-200 focus:outline-none"
+              className="w-full border border-gray-300 px-4 py-2 rounded-md focus:ring focus:ring-[#2A6F97] focus:outline-none"
               placeholder="Enter password"
             />
           </div>
 
           <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium mb-1">Confirm Password</label>
+            <label htmlFor="confirmPassword" className="block text-sm font-medium mb-1 text-[#003049]">Confirm Password</label>
             <input
               type="password"
               name="confirmPassword"
@@ -94,22 +94,22 @@ const SignUp = () => {
               required
               value={formData.confirmPassword}
               onChange={handleChange}
-              className="w-full border border-gray-300 px-4 py-2 rounded-md focus:ring focus:ring-indigo-200 focus:outline-none"
+              className="w-full border border-gray-300 px-4 py-2 rounded-md focus:ring focus:ring-[#2A6F97] focus:outline-none"
               placeholder="Re-enter password"
             />
           </div>
 
           <button
             type="submit"
-            className="w-full bg-black text-white font-semibold py-2 rounded-md hover:bg-gray-800 transition"
+            className="w-full bg-gradient-to-r from-[#003049] to-[#2A6F97] text-white font-semibold py-2 rounded-md hover:opacity-90 transition"
           >
             Register
           </button>
         </form>
 
-        <p className="text-center text-sm mt-6">
+        <p className="text-center text-sm mt-6 text-[#003049]">
           Already have an account?{' '}
-          <button onClick={handleLoginRedirect} className="text-blue-600 font-medium underline">
+          <button onClick={handleLoginRedirect} className="blue-600 font-medium underline hover:text-[#2A6F97]">
             Log in
           </button>
         </p>
