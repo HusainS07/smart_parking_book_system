@@ -1,12 +1,10 @@
-// app/api/bookings/[email]/route.js
-
 import { MongoClient } from 'mongodb';
 
 const client = new MongoClient(process.env.MONGODB_URI);
 
-export async function GET(req, context) {
-  
-  const { email } = context.params;
+// ✅ FIXED: Use { params } instead of context
+export async function GET(request, { params }) {
+  const email = decodeURIComponent(params.email);
 
   try {
     await client.connect();
