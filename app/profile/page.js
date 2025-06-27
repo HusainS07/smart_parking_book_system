@@ -1,8 +1,10 @@
 'use client';
+
 import { useState, useEffect, useCallback } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import axios from 'axios';
-import UploadProfilePicture from './UploadProfilePicture'; // Adjust the import path as needed
+import UploadProfilePicture from '../../components/UploadProfilePicture'; // Adjust path
+import Image from 'next/image';
 
 export default function ProfilePage() {
   const { data: session, status } = useSession();
@@ -10,7 +12,8 @@ export default function ProfilePage() {
   const [user, setUser] = useState(null);
   const [editing, setEditing] = useState(false);
   const [formData, setFormData] = useState({});
-  const [imagePreview, setImagePreview] = useState(null);
+  const [imageUrl, setImageUrl] = useState(null); // Store uploaded image base64
+  const [imageUploading, setImageUploading] = useState(false); // Track upload state
   const [bookings, setBookings] = useState([]);
   const [lots, setLots] = useState([]);
   const [showLotForm, setShowLotForm] = useState(false);
@@ -21,17 +24,14 @@ export default function ProfilePage() {
     totalSpots: '',
     pricePerHour: '',
   });
-
-  // Enhanced loading and error states
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [bookingsLoading, setBookingsLoading] = useState(false);
   const [lotsLoading, setLotsLoading] = useState(false);
   const [updateLoading, setUpdateLoading] = useState(false);
   const [lotSubmitLoading, setLotSubmitLoading] = useState(false);
-  const [imageUploading, setImageUploading] = useState(false);
 
-  // Enhanced error handler
+  // Error handler
   const handleError = useCallback((err, context) => {
     console.error(`${context} error:`, err);
     const errorMessage = err.response?.data?.message || err.message || 'An unexpected error occurred';
@@ -46,7 +46,7 @@ export default function ProfilePage() {
     }
   }, [error]);
 
-  // Fetch user data with enhanced error handling
+  // Fetch user data
   useEffect(() => {
     if (status === 'loading') return;
 
@@ -93,7 +93,7 @@ export default function ProfilePage() {
       });
   }, [session, status, handleError]);
 
-  // Fetch bookings and lots with enhanced error handling
+  // Fetch bookings and lots
   useEffect(() => {
     if (!session?.user?.email) return;
 
@@ -130,7 +130,7 @@ export default function ProfilePage() {
     }
   }, [activeTab, session, handleError]);
 
-  // Enhanced input change handler with validation
+  // Handle input changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
 
@@ -145,20 +145,14 @@ export default function ProfilePage() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Handle image upload from CldUploadButton
-  const handleImageUpload = (url, error) => {
+  // Handle image upload
+  const handleImageUpload = (base64) => {
+    setImageUrl(base64);
+    setFormData((prev) => ({ ...prev, image: base64 }));
     setImageUploading(false);
-    if (error) {
-      setError(error);
-      return;
-    }
-    if (url) {
-      setFormData((prev) => ({ ...prev, image: url }));
-      setImagePreview(url);
-    }
   };
 
-  // Enhanced update handler
+  // Handle profile update
   const handleUpdate = async () => {
     if (!formData.email) return;
 
@@ -169,7 +163,7 @@ export default function ProfilePage() {
       const updatePayload = {
         name: formData.name,
         phone: formData.phone,
-        image: formData.image || user.image || '/default-profile.jpg',
+        image: formData.image,
         firstName: formData.firstName,
         lastName: formData.lastName,
         gender: formData.gender,
@@ -199,7 +193,7 @@ export default function ProfilePage() {
       setUser(res.data);
       setFormData(res.data);
       setEditing(false);
-      setImagePreview(null);
+      setImageUrl(null);
       setError(null);
     } catch (err) {
       handleError(err, 'Failed to update profile');
@@ -208,7 +202,7 @@ export default function ProfilePage() {
     }
   };
 
-  // Enhanced lot form handlers
+  // Handle lot form changes
   const handleLotFormChange = (e) => {
     const { name, value } = e.target;
 
@@ -219,6 +213,7 @@ export default function ProfilePage() {
     setLotForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  // Handle lot submission
   const handleLotSubmit = async () => {
     setLotSubmitLoading(true);
     setError(null);
@@ -254,14 +249,14 @@ export default function ProfilePage() {
   const handleLogout = () => signOut();
 
   const handleCancelEdit = () => {
-    const hasChanges = JSON.stringify(formData) !== JSON.stringify(user);
+    const hasChanges = JSON.stringify(formData) !== JSON.stringify(user) || imageUrl;
     if (hasChanges && !confirm('You have unsaved changes. Are you sure you want to cancel?')) {
       return;
     }
 
     setEditing(false);
     setFormData(user);
-    setImagePreview(null);
+    setImageUrl(null);
     setError(null);
   };
 
@@ -368,19 +363,13 @@ export default function ProfilePage() {
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row items-center gap-6 border-b pb-6">
             <div className="relative">
-              <img
-                src={imagePreview || user.image || '/default-profile.jpg'}
+              <Image
+                src={imageUrl || formData.image || user.image || '/default-profile.jpg'}
                 alt="Profile"
-                className="w-24 h-24 rounded-full object-cover border-2 border-gray-200"
-                onError={(e) => {
-                  e.target.src = '/default-profile.jpg';
-                }}
+                width={96}
+                height={96}
+                className="rounded-full object-cover border-2 border-gray-200"
               />
-              {imageUploading && (
-                <div className="absolute inset-0 rounded-full bg-black bg-opacity-75 flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
-                </div>
-              )}
             </div>
             <div className="text-center sm:text-left">
               <h2 className="text-2xl font-semibold">{user.name || 'No Name'}</h2>
@@ -397,12 +386,7 @@ export default function ProfilePage() {
               { field: 'gender', label: 'Gender', type: 'select', options: ['', 'Male', 'Female', 'Other'] },
               { field: 'phone', label: 'Phone Number', type: 'tel' },
               { field: 'dob', label: 'Date of Birth', type: 'date' },
-              {
-                field: 'bloodGroup',
-                label: 'Blood Group',
-                type: 'select',
-                options: ['', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
-              },
+              { field: 'bloodGroup', label: 'Blood Group', type: 'select', options: ['', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] },
               { field: 'fatherName', label: 'Father Name', type: 'text' },
               { field: 'age', label: 'Age', type: 'number' },
             ].map(({ field, label, type, options }) => (
@@ -414,9 +398,7 @@ export default function ProfilePage() {
                   onChange={handleInputChange}
                   disabled={!editing}
                   className={`border rounded px-3 py-2 text-sm ${
-                    editing
-                      ? 'bg-white border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400'
-                      : 'bg-gray-100'
+                    editing ? 'bg-white border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400' : 'bg-gray-100'
                   }`}
                 >
                   {options.map((option) => (
@@ -435,9 +417,7 @@ export default function ProfilePage() {
                   readOnly={!editing}
                   placeholder={label}
                   className={`border rounded px-3 py-2 text-sm ${
-                    editing
-                      ? 'bg-white border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400'
-                      : 'bg-gray-100'
+                    editing ? 'bg-white border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400' : 'bg-gray-100'
                   }`}
                   min={type === 'number' ? '0' : undefined}
                   max={type === 'number' ? '150' : undefined}
@@ -453,9 +433,7 @@ export default function ProfilePage() {
               placeholder="Address"
               rows="3"
               className={`col-span-2 border rounded px-3 py-2 text-sm resize-none ${
-                editing
-                  ? 'bg-white border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400'
-                  : 'bg-gray-100'
+                editing ? 'bg-white border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400' : 'bg-gray-100'
               }`}
             />
 
@@ -464,12 +442,9 @@ export default function ProfilePage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Profile Picture
                 </label>
-                <UploadProfilePicture
-                  onUpload={handleImageUpload}
-                  disabled={imageUploading}
-                />
+                <UploadProfilePicture onUpload={handleImageUpload} />
                 <p className="text-xs text-gray-500 mt-1">
-                  Max file size: 5MB. Image will be uploaded to Cloudinary.
+                  Max file size: 5MB. Supported formats: JPEG, PNG, GIF.
                 </p>
               </div>
             )}
@@ -558,7 +533,6 @@ export default function ProfilePage() {
           {showLotForm && (
             <div className="bg-gray-50 rounded-lg shadow-sm border p-6">
               <h3 className="text-lg font-semibold text-gray-800 mb-4">Add New Parking Lot</h3>
-
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                 <input
                   name="lotName"
@@ -607,7 +581,6 @@ export default function ProfilePage() {
                   required
                 />
               </div>
-
               <button
                 onClick={handleLotSubmit}
                 disabled={!isLotFormValid || lotSubmitLoading}
@@ -650,11 +623,9 @@ export default function ProfilePage() {
                           {lot.isApproved ? '✓ Approved' : '⏳ Pending'}
                         </span>
                       </div>
-
                       <p className="text-gray-600">
                         📍 {lot.address}, {lot.city}
                       </p>
-
                       <div className="grid grid-cols-2 gap-4 pt-2">
                         <div>
                           <span className="text-sm text-gray-500">Total Spots</span>
