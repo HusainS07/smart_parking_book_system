@@ -30,6 +30,7 @@ export default function ProfilePage() {
   const [lotsLoading, setLotsLoading] = useState(false);
   const [updateLoading, setUpdateLoading] = useState(false);
   const [lotSubmitLoading, setLotSubmitLoading] = useState(false);
+  const [imageUploading, setImageUploading] = useState(false);
 
   // Enhanced error handler
   const handleError = useCallback((err, context) => {
@@ -45,6 +46,25 @@ export default function ProfilePage() {
       return () => clearTimeout(timer);
     }
   }, [error]);
+
+  // Upload image to Cloudinary (you'll need to implement this or use your preferred image upload service)
+  const uploadImageToCloudinary = async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', 'your_upload_preset'); // Replace with your Cloudinary upload preset
+    formData.append('cloud_name', 'your_cloud_name'); // Replace with your Cloudinary cloud name
+
+    try {
+      const response = await axios.post(
+        `https://api.cloudinary.com/v1_1/your_cloud_name/image/upload`, // Replace with your Cloudinary URL
+        formData
+      );
+      return response.data.secure_url;
+    } catch (error) {
+      console.error('Image upload failed:', error);
+      throw new Error('Failed to upload image');
+    }
+  };
 
   // Fetch user data with enhanced error handling
   useEffect(() => {
@@ -170,7 +190,7 @@ export default function ProfilePage() {
     }
   };
 
-  // Enhanced update handler
+  // Enhanced update handler - now matches backend JSON expectation
   const handleUpdate = async () => {
     if (!formData.email) return;
     
@@ -178,24 +198,54 @@ export default function ProfilePage() {
     setError(null);
     
     try {
-      const form = new FormData();
+      let imageUrl = formData.image; // Keep existing image URL
       
-      // Add form data (excluding email as it shouldn't be updated)
-      Object.keys(formData).forEach(key => {
-        if (key !== 'email' && formData[key] !== undefined) {
-          form.append(key, formData[key]);
-        }
-      });
-      
+      // Upload new image to Cloudinary if selected
       if (imageFile) {
-        form.append('image', imageFile);
+        setImageUploading(true);
+        try {
+          imageUrl = await uploadImageToCloudinary(imageFile);
+        } catch (imageError) {
+          setError('Failed to upload image. Please try again.');
+          setUpdateLoading(false);
+          setImageUploading(false);
+          return;
+        }
+        setImageUploading(false);
       }
 
-      const res = await axios.put(`/api/user/${encodeURIComponent(formData.email)}`, form, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+      // Prepare JSON payload matching backend expectations
+      const updatePayload = {
+        name: formData.name,
+        phone: formData.phone,
+        image: imageUrl,
+        // Add other fields that your backend supports
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        gender: formData.gender,
+        dob: formData.dob,
+        bloodGroup: formData.bloodGroup,
+        fatherName: formData.fatherName,
+        age: formData.age,
+        address: formData.address
+      };
+
+      // Remove undefined/empty fields
+      Object.keys(updatePayload).forEach(key => {
+        if (updatePayload[key] === undefined || updatePayload[key] === '') {
+          delete updatePayload[key];
+        }
       });
+
+      const res = await axios.put(
+        `/api/user/${encodeURIComponent(formData.email)}`, 
+        updatePayload,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
       
       setUser(res.data);
       setFormData(res.data);
@@ -207,6 +257,7 @@ export default function ProfilePage() {
       handleError(err, 'Failed to update profile');
     } finally {
       setUpdateLoading(false);
+      setImageUploading(false);
     }
   };
 
@@ -396,6 +447,11 @@ export default function ProfilePage() {
                   <span className="text-white text-xs">Change</span>
                 </div>
               )}
+              {imageUploading && (
+                <div className="absolute inset-0 rounded-full bg-black bg-opacity-75 flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                </div>
+              )}
             </div>
             <div className="text-center sm:text-left">
               <h2 className="text-2xl font-semibold">{user.name || 'No Name'}</h2>
@@ -407,6 +463,7 @@ export default function ProfilePage() {
           {/* Editable Form */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {[
+              { field: 'name', label: 'Full Name', type: 'text' },
               { field: 'firstName', label: 'First Name', type: 'text' },
               { field: 'lastName', label: 'Last Name', type: 'text' },
               { field: 'gender', label: 'Gender', type: 'select', options: ['', 'Male', 'Female', 'Other'] },
@@ -471,9 +528,15 @@ export default function ProfilePage() {
                   type="file"
                   onChange={handleImageChange}
                   accept="image/*"
-                  className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  disabled={imageUploading}
+                  className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50"
                 />
-                <p className="text-xs text-gray-500 mt-1">Max file size: 5MB</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Max file size: 5MB. Image will be uploaded to Cloudinary.
+                </p>
+                {imageUploading && (
+                  <p className="text-xs text-blue-600 mt-1">Uploading image...</p>
+                )}
               </div>
             )}
           </div>
@@ -489,14 +552,14 @@ export default function ProfilePage() {
             <div className="flex space-x-4">
               <button
                 onClick={handleUpdate}
-                disabled={updateLoading}
+                disabled={updateLoading || imageUploading}
                 className="px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {updateLoading ? 'Saving...' : 'Save'}
+                {updateLoading ? (imageUploading ? 'Uploading...' : 'Saving...') : 'Save'}
               </button>
               <button
                 onClick={handleCancelEdit}
-                disabled={updateLoading}
+                disabled={updateLoading || imageUploading}
                 className="px-6 py-2 bg-gray-300 text-gray-800 rounded hover:bg-gray-400 transition disabled:opacity-50"
               >
                 Cancel
