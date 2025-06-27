@@ -19,7 +19,7 @@ export async function GET(request, { params }) {
     await dbConnect();
 
     const currentDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-    const currentHour = new Date().getHours(); // 0–23 (e.g., 21 at 9:42 PM IST)
+    const currentHour = new Date().getHours(); // 0–23 (e.g., 22 at 10:15 PM IST)
 
     const slots = await ParkingSlot.find({
       'bookedHours.email': email,

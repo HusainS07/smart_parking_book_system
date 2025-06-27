@@ -12,7 +12,6 @@ export async function GET(request) {
 
     await dbConnect();
     const slots = await ParkingSlot.find({ location: new RegExp(location, 'i') }).lean();
-    // Sanitize bookedHours to ensure valid date fields
     const sanitizedSlots = slots.map((slot) => ({
       ...slot,
       bookedHours: (slot.bookedHours || []).filter(
