@@ -11,8 +11,15 @@ export async function GET(request) {
     }
 
     await dbConnect();
-    const slots = await ParkingSlot.find({ location: new RegExp(location, 'i') });
-    return NextResponse.json({ slots, currentHour: new Date().getHours() }, { status: 200 });
+    const slots = await ParkingSlot.find({ location: new RegExp(location, 'i') }).lean();
+    // Sanitize bookedHours to ensure valid date fields
+    const sanitizedSlots = slots.map((slot) => ({
+      ...slot,
+      bookedHours: (slot.bookedHours || []).filter(
+        (bh) => bh.date && bh.date.toISOString
+      ),
+    }));
+    return NextResponse.json({ slots: sanitizedSlots, currentHour: new Date().getHours() }, { status: 200 });
   } catch (err) {
     console.error('❌ Error fetching slots:', err);
     return NextResponse.json({ error: 'Internal Server Error', details: err.message }, { status: 500 });

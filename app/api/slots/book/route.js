@@ -38,7 +38,7 @@ export async function POST(req) {
     }
 
     const bookedHoursToday = (slot.bookedHours || []).filter(
-      (bh) => bh.date.toISOString().split('T')[0] === date
+      (bh) => bh.date && bh.date.toISOString && bh.date.toISOString().split('T')[0] === date
     );
     if (bookedHoursToday.some((bh) => bh.hour === hour)) {
       console.error('❌ Hour already booked:', hour, 'on', date);

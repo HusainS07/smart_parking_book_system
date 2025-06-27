@@ -139,7 +139,7 @@ export default function BookingPage() {
             {slots.map((slot) => {
               const today = new Date().toISOString().split('T')[0];
               const bookedHoursToday = (slot.bookedHours || []).filter(
-                (bh) => bh.date.toISOString().split('T')[0] === today
+                (bh) => bh.date && bh.date.toISOString && bh.date.toISOString().split('T')[0] === today
               ).map((bh) => bh.hour);
               return (
                 <div
