@@ -5,7 +5,7 @@ export default function UploadProfilePicture({ onUpload }) {
   return (
     <CldUploadButton
       uploadPreset="user_profile_upload"
-      options={{ folder: 'user_profiles' }}
+      cloudName={process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}  // this is now PUBLIC
       onUpload={(result) => {
         if (result?.info?.secure_url) {
           onUpload(result.info.secure_url);
