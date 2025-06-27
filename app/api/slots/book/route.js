@@ -1,15 +1,22 @@
 import dbConnect from '@/lib/dbConnect';
 import ParkingSlot from '@/models/parkingslots';
 import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 export async function POST(req) {
   try {
-    const body = await req.json();
-    const { email, slotid, hour, date } = body;
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    if (!email || !slotid || hour === undefined || !date) {
+    const { slotid, hour, date } = await req.json();
+    const email = session.user.email;
+
+    if (!slotid || hour === undefined || !date) {
       console.error('❌ Missing data:', { email, slotid, hour, date });
-      return NextResponse.json({ error: 'Missing email, slotid, hour, or date' }, { status: 400 });
+      return NextResponse.json({ error: 'Missing slotid, hour, or date' }, { status: 400 });
     }
 
     if (!Number.isInteger(hour) || hour < 0 || hour > 23) {

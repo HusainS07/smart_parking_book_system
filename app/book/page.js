@@ -41,7 +41,7 @@ export default function BookingPage() {
     async function fetchWallet() {
       if (session?.user?.email) {
         try {
-          const res = await axios.get(`/api/wallet/amount?email=${session.user.email}`);
+          const res = await axios.get(`/api/wallet/amount`);
           setWallet(res.data.balance);
         } catch (err) {
           console.error('Wallet fetch error:', err);
@@ -70,12 +70,10 @@ export default function BookingPage() {
 
     try {
       const res = await axios.post('/api/wallet/deduct', {
-        email: session.user.email,
         amount: slot.amount,
       });
 
       await axios.post('/api/slots/book', {
-        email: session.user.email,
         slotid: slot.slotid,
         hour: selectedHour,
         date: new Date().toISOString().split('T')[0],

@@ -1,18 +1,25 @@
 import dbConnect from '@/lib/dbConnect';
 import ParkingSlot from '@/models/parkingslots';
 import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 export async function GET(request, { params }) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const email = decodeURIComponent(params.email);
-    if (!email) {
-      return NextResponse.json({ error: 'Missing email' }, { status: 400 });
+    if (email !== session.user.email) {
+      return NextResponse.json({ error: 'Forbidden: Email does not match authenticated user' }, { status: 403 });
     }
 
     await dbConnect();
 
     const currentDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-    const currentHour = new Date().getHours(); // 0–23 (e.g., 20 at 8:34 PM IST)
+    const currentHour = new Date().getHours(); // 0–23 (e.g., 20 at 8:55 PM IST)
 
     const slots = await ParkingSlot.find({
       'bookedHours.email': email,
