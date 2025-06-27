@@ -50,7 +50,7 @@ export default function AdminDashboard() {
 
   const handleApproveLot = async (lotId) => {
     try {
-      const res = await axios.post('/api/admin/approve', { lotId }, {
+      const res = await axios.post('/api/admin/lots/approve', { lotId }, {
         headers: { 'Content-Type': 'application/json' },
         withCredentials: true,
       });
@@ -65,7 +65,7 @@ export default function AdminDashboard() {
 
   const handleRejectLot = async (lotId) => {
     try {
-      const res = await axios.post('/api/admin/reject', { lotId }, {
+      const res = await axios.post('/api/admin/lots/reject', { lotId }, {
         headers: { 'Content-Type': 'application/json' },
         withCredentials: true,
       });
