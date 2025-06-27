@@ -1,39 +1,20 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import dbConnect from "@/lib/dbConnect";
-import Wallet from "@/models/wallet";
-import { NextResponse } from "next/server";
+import dbConnect from '@/lib/dbConnect';
+import Wallet from '@/models/wallet';
+import { NextResponse } from 'next/server';
 
-export async function GET(req) {
-  // Connect to the database
-  await dbConnect();
-
-  // Get the user session
-  const session = await getServerSession(authOptions);
-
-  // Check if the user is logged in
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const email = session.user.email;
-
-  console.log(`Looking for wallet with email: ${email}`);
-
+export async function GET(request) {
   try {
-    const wallet = await Wallet.findOne({ email });
-
-    if (!wallet) {
-      console.log(`No wallet found for email: ${email}`);
-      return NextResponse.json({ error: "Wallet not found" }, { status: 404 });
+    const { searchParams } = new URL(request.url);
+    const email = searchParams.get('email');
+    if (!email) {
+      return NextResponse.json({ error: 'Missing email' }, { status: 400 });
     }
 
-    return NextResponse.json({
-      username: wallet.username,       // still return username for display
-      balance: wallet.balance || 0,    // default balance to 0
-    });
+    await dbConnect();
+    const wallet = await Wallet.findOne({ email });
+    return NextResponse.json({ balance: wallet ? wallet.balance : 0 }, { status: 200 });
   } catch (err) {
-    console.error("Error fetching wallet:", err);
-    return NextResponse.json({ error: "Error fetching wallet" }, { status: 500 });
+    console.error('❌ Error fetching wallet:', err);
+    return NextResponse.json({ error: 'Internal Server Error', details: err.message }, { status: 500 });
   }
 }

@@ -1,56 +1,50 @@
-import mongoose from "mongoose";
-import ParkingSlot from "@/models/parkingslots";
+import dbConnect from '@/lib/dbConnect';
+import ParkingSlot from '@/models/parkingslots';
+import { NextResponse } from 'next/server';
 
 export async function POST(req) {
   try {
     const body = await req.json();
-    const { email, slotid, hour } = body;
+    const { email, slotid, hour, date } = body;
 
-    // ✅ Step 1: Validate input
-    if (!email || !slotid || hour === undefined) {
-      console.error("❌ Missing data:", { email, slotid, hour });
-      return new Response(JSON.stringify({ error: "Missing email, slotid or hour" }), {
-        status: 400,
-      });
+    if (!email || !slotid || hour === undefined || !date) {
+      console.error('❌ Missing data:', { email, slotid, hour, date });
+      return NextResponse.json({ error: 'Missing email, slotid, hour, or date' }, { status: 400 });
     }
 
-    await mongoose.connect(process.env.MONGODB_URI);
+    if (!Number.isInteger(hour) || hour < 0 || hour > 23) {
+      console.error('❌ Invalid hour:', hour);
+      return NextResponse.json({ error: 'Invalid hour (must be 0–23)' }, { status: 400 });
+    }
 
-    // ✅ Step 2: Find slot
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      console.error('❌ Invalid date format:', date);
+      return NextResponse.json({ error: 'Invalid date format (use YYYY-MM-DD)' }, { status: 400 });
+    }
+
+    await dbConnect();
+
     const slot = await ParkingSlot.findOne({ slotid });
-
     if (!slot) {
-      console.error("❌ Slot not found:", slotid);
-      return new Response(JSON.stringify({ error: "Slot not found" }), {
-        status: 404,
-      });
+      console.error('❌ Slot not found:', slotid);
+      return NextResponse.json({ error: 'Slot not found' }, { status: 404 });
     }
 
-    // ✅ Step 3: Make sure bookedHours exists
-    if (!Array.isArray(slot.bookedHours)) {
-      slot.bookedHours = [];
+    const bookedHoursToday = (slot.bookedHours || []).filter(
+      (bh) => bh.date.toISOString().split('T')[0] === date
+    );
+    if (bookedHoursToday.some((bh) => bh.hour === hour)) {
+      console.error('❌ Hour already booked:', hour, 'on', date);
+      return NextResponse.json({ error: `Hour ${hour}:00–${hour + 1}:00 already booked on ${date}` }, { status: 400 });
     }
 
-    // ✅ Step 4: Check if the selected hour is already booked
-    if (slot.bookedHours.includes(hour)) {
-      console.error("❌ Hour already booked:", hour);
-      return new Response(JSON.stringify({ error: "Hour already booked" }), {
-        status: 400,
-      });
-    }
-
-    // ✅ Step 5: Book the hour and update slot
-    slot.bookedHours.push(hour);
-    slot.email = email; // optional: save last booked user
+    slot.bookedHours.push({ hour, email, date: new Date(date) });
     await slot.save();
 
-    console.log(`✅ Slot ${slotid} booked at ${hour}:00 by ${email}`);
-    return new Response(JSON.stringify({ success: true, slot }), { status: 200 });
-
+    console.log(`✅ Slot ${slotid} booked at ${hour}:00–${hour + 1}:00 on ${date} by ${email}`);
+    return NextResponse.json({ success: true, slot }, { status: 200 });
   } catch (err) {
-    console.error("❌ Internal server error:", err);
-    return new Response(JSON.stringify({ error: "Internal Server Error" }), {
-      status: 500,
-    });
+    console.error('❌ Internal server error:', err);
+    return NextResponse.json({ error: 'Internal Server Error', details: err.message }, { status: 500 });
   }
 }

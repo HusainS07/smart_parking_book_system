@@ -16,7 +16,6 @@ export default function BookingPage() {
 
   const hourOptions = Array.from({ length: 24 }, (_, i) => i);
 
-  // Fetch slots and current hour from backend
   useEffect(() => {
     async function fetchSlots() {
       try {
@@ -29,7 +28,7 @@ export default function BookingPage() {
       } catch (err) {
         console.error('Error fetching slots:', err);
         setSlots([]);
-        setCurrentHour(new Date().getHours()); // fallback
+        setCurrentHour(new Date().getHours());
       } finally {
         setLoading(false);
       }
@@ -38,7 +37,6 @@ export default function BookingPage() {
     fetchSlots();
   }, [location]);
 
-  // Fetch wallet balance
   useEffect(() => {
     async function fetchWallet() {
       if (session?.user?.email) {
@@ -54,7 +52,6 @@ export default function BookingPage() {
     fetchWallet();
   }, [session]);
 
-  // Handle wallet payment
   const handleWalletBooking = async (slot) => {
     if (selectedHour === null) {
       alert('Please select an hour');
@@ -81,51 +78,36 @@ export default function BookingPage() {
         email: session.user.email,
         slotid: slot.slotid,
         hour: selectedHour,
+        date: new Date().toISOString().split('T')[0],
       });
 
       setWallet(res.data.newBalance);
 
-      // Update local slot state
       setSlots((prev) =>
         prev.map((s) =>
           s.slotid === slot.slotid
             ? {
                 ...s,
-                bookedHours: [...(s.bookedHours || []), selectedHour],
+                bookedHours: [
+                  ...(s.bookedHours || []),
+                  { hour: selectedHour, email: session.user.email, date: new Date() },
+                ],
               }
             : s
         )
       );
 
-      alert(`✅ Booked slot ${slot.slotid} at ${selectedHour}:00. New balance: ₹${res.data.newBalance}`);
+      alert(`✅ Booked slot ${slot.slotid} at ${selectedHour}:00–${selectedHour + 1}:00. New balance: ₹${res.data.newBalance}`);
       setSelectedSlot(null);
       setSelectedHour(null);
     } catch (err) {
       console.error('Booking error:', err);
-      alert('❌ Booking failed');
+      alert(`❌ Booking failed: ${err.response?.data?.error || 'Unknown error'}`);
     }
   };
 
-  // Handle UPI booking
-  const handleUPIBooking = async (slot) => {
-    if (selectedHour === null) {
-      alert('Please select an hour');
-      return;
-    }
-
-    // Simulate UPI booking (you can integrate Razorpay/Stripe here)
-    alert(`📲 Booked slot ${slot.slotid} for ${selectedHour}:00 using UPI!`);
-
-    setSlots((prev) =>
-      prev.map((s) =>
-        s.slotid === slot.slotid
-          ? { ...s, bookedHours: [...(s.bookedHours || []), selectedHour] }
-          : s
-      )
-    );
-
-    setSelectedSlot(null);
-    setSelectedHour(null);
+  const handleUPIBooking = () => {
+    alert('UPI payment feature is in progress and will be introduced later.');
   };
 
   return (
@@ -156,81 +138,85 @@ export default function BookingPage() {
           <p className="text-center text-red-500 text-lg">No slots found in {location}.</p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {slots.map((slot) => (
-              <div
-                key={slot._id}
-                className="bg-white p-5 rounded-xl shadow-lg border hover:shadow-2xl transition-all duration-300"
-              >
-                <h2 className="text-xl font-bold text-indigo-700 mb-2">🆔 Slot: {slot.slotid}</h2>
-                <p className="mb-1">💸 Amount: ₹{slot.amount}</p>
-                <p className="mb-1">📅 Created: {new Date(slot.createdat).toLocaleDateString()}</p>
-                <p className="mt-2 text-green-600 font-medium">
-                  ✅ Available Hours: {24 - (slot.bookedHours?.length || 0)}
-                </p>
+            {slots.map((slot) => {
+              const today = new Date().toISOString().split('T')[0];
+              const bookedHoursToday = (slot.bookedHours || []).filter(
+                (bh) => bh.date.toISOString().split('T')[0] === today
+              ).map((bh) => bh.hour);
+              return (
+                <div
+                  key={slot._id}
+                  className="bg-white p-5 rounded-xl shadow-lg border hover:shadow-2xl transition-all duration-300"
+                >
+                  <h2 className="text-xl font-bold text-indigo-700 mb-2">🆔 Slot: {slot.slotid}</h2>
+                  <p className="mb-1">💸 Amount: ₹{slot.amount}</p>
+                  <p className="mb-1">📅 Created: {new Date(slot.createdat).toLocaleDateString()}</p>
+                  <p className="mt-2 text-green-600 font-medium">
+                    ✅ Available Hours: {24 - bookedHoursToday.length}
+                  </p>
 
-                {selectedSlot === slot._id ? (
-                  <div className="mt-4 space-y-2">
-                    <select
-                      className="w-full p-2 rounded-md border-2 border-gray-300 focus:border-blue-400 focus:outline-none"
-                      value={selectedHour ?? ''}
-                      onChange={(e) => setSelectedHour(Number(e.target.value))}
-                    >
-                      <option value="">🕓 Select Hour (0–23)</option>
-                      {hourOptions.map((h) => (
-                        <option
-                          key={h}
-                          value={h}
-                          disabled={
-                            slot.bookedHours?.includes(h) || h < currentHour
-                          }
-                        >
-                          {`${h}:00 - ${h + 1}:00`}
-                          {h < currentHour
-                            ? ' (Expired)'
-                            : slot.bookedHours?.includes(h)
-                            ? ' (Booked)'
-                            : ''}
-                        </option>
-                      ))}
-                    </select>
+                  {selectedSlot === slot._id ? (
+                    <div className="mt-4 space-y-2">
+                      <select
+                        className="w-full p-2 rounded-md border-2 border-gray-300 focus:border-blue-400 focus:outline-none"
+                        value={selectedHour ?? ''}
+                        onChange={(e) => setSelectedHour(Number(e.target.value))}
+                      >
+                        <option value="">🕓 Select Hour (0–23)</option>
+                        {hourOptions.map((h) => (
+                          <option
+                            key={h}
+                            value={h}
+                            disabled={bookedHoursToday.includes(h) || h < currentHour}
+                          >
+                            {`${h}:00–${h + 1}:00`}
+                            {h < currentHour
+                              ? ' (Expired)'
+                              : bookedHoursToday.includes(h)
+                              ? ' (Booked)'
+                              : ''}
+                          </option>
+                        ))}
+                      </select>
 
+                      <button
+                        className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-md transition"
+                        onClick={() => handleWalletBooking(slot)}
+                      >
+                        💼 Pay with Wallet
+                      </button>
+
+                      <button
+                        className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 rounded-md transition"
+                        onClick={handleUPIBooking}
+                      >
+                        📲 Pay with UPI
+                      </button>
+
+                      <button
+                        className="w-full bg-gray-300 hover:bg-gray-400 text-black font-medium py-2 rounded-md"
+                        onClick={() => {
+                          setSelectedSlot(null);
+                          setSelectedHour(null);
+                        }}
+                      >
+                        ❌ Cancel
+                      </button>
+                    </div>
+                  ) : (
                     <button
-                      className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-md transition"
-                      onClick={() => handleWalletBooking(slot)}
-                    >
-                      💼 Pay with Wallet
-                    </button>
-
-                    <button
-                      className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 rounded-md transition"
-                      onClick={() => handleUPIBooking(slot)}
-                    >
-                      📲 Pay with UPI
-                    </button>
-
-                    <button
-                      className="w-full bg-gray-300 hover:bg-gray-400 text-black font-medium py-2 rounded-md"
+                      className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-md transition"
                       onClick={() => {
-                        setSelectedSlot(null);
+                        setSelectedSlot(slot._id);
                         setSelectedHour(null);
                       }}
                     >
-                      ❌ Cancel
+                      📅 Book Now
                     </button>
-                  </div>
-                ) : (
-                  <button
-                    className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-md transition"
-                    onClick={() => {
-                      setSelectedSlot(slot._id);
-                      setSelectedHour(null);
-                    }}
-                  >
-                    📅 Book Now
-                  </button>
-                )}
-              </div>
-            ))}
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

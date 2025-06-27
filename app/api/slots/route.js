@@ -1,29 +1,20 @@
-// app/api/slots/route.js
 import dbConnect from '@/lib/dbConnect';
 import ParkingSlot from '@/models/parkingslots';
+import { NextResponse } from 'next/server';
 
-export async function GET(req) {
-  await dbConnect();
+export async function GET(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const location = searchParams.get('location');
+    if (!location) {
+      return NextResponse.json({ error: 'Missing location' }, { status: 400 });
+    }
 
-  const { searchParams } = new URL(req.url);
-  const location = searchParams.get('location') || 'mumbai';
-
-  const now = new Date();
-  const currentHour = now.getHours();
-
-  // 🔍 Create range for today's date
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const tomorrow = new Date(today);
-  tomorrow.setDate(today.getDate() + 1);
-
-  // ✅ Filter only slots created today
-  const slots = await ParkingSlot.find({
-    location,
-    isApproved: true,
-    createdat: { $gte: today, $lt: tomorrow },
-  }).lean();
-
-  return new Response(JSON.stringify({ slots, currentHour }), { status: 200 });
+    await dbConnect();
+    const slots = await ParkingSlot.find({ location: new RegExp(location, 'i') });
+    return NextResponse.json({ slots, currentHour: new Date().getHours() }, { status: 200 });
+  } catch (err) {
+    console.error('❌ Error fetching slots:', err);
+    return NextResponse.json({ error: 'Internal Server Error', details: err.message }, { status: 500 });
+  }
 }
