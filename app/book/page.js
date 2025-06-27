@@ -24,13 +24,7 @@ export default function BookingPage() {
         const res = await axios.get(`/api/slots?location=${location}`);
         const { slots, currentHour } = res.data;
 
-        // Ensure each slot has a bookedHours array
-        const sanitizedSlots = slots.map((s) => ({
-          ...s,
-          bookedHours: Array.isArray(s.bookedHours) ? s.bookedHours : [],
-        }));
-
-        setSlots(sanitizedSlots);
+        setSlots(slots);
         setCurrentHour(currentHour);
       } catch (err) {
         console.error('Error fetching slots:', err);
@@ -97,7 +91,7 @@ export default function BookingPage() {
           s.slotid === slot.slotid
             ? {
                 ...s,
-                bookedHours: [...(Array.isArray(s.bookedHours) ? s.bookedHours : []), selectedHour],
+                bookedHours: [...(s.bookedHours || []), selectedHour],
               }
             : s
         )
@@ -119,16 +113,13 @@ export default function BookingPage() {
       return;
     }
 
-    // Simulate UPI booking
+    // Simulate UPI booking (you can integrate Razorpay/Stripe here)
     alert(`📲 Booked slot ${slot.slotid} for ${selectedHour}:00 using UPI!`);
 
     setSlots((prev) =>
       prev.map((s) =>
         s.slotid === slot.slotid
-          ? {
-              ...s,
-              bookedHours: [...(Array.isArray(s.bookedHours) ? s.bookedHours : []), selectedHour],
-            }
+          ? { ...s, bookedHours: [...(s.bookedHours || []), selectedHour] }
           : s
       )
     );
@@ -174,7 +165,7 @@ export default function BookingPage() {
                 <p className="mb-1">💸 Amount: ₹{slot.amount}</p>
                 <p className="mb-1">📅 Created: {new Date(slot.createdat).toLocaleDateString()}</p>
                 <p className="mt-2 text-green-600 font-medium">
-                  ✅ Available Hours: {24 - (Array.isArray(slot.bookedHours) ? slot.bookedHours.length : 0)}
+                  ✅ Available Hours: {24 - (slot.bookedHours?.length || 0)}
                 </p>
 
                 {selectedSlot === slot._id ? (
@@ -190,13 +181,13 @@ export default function BookingPage() {
                           key={h}
                           value={h}
                           disabled={
-                            (Array.isArray(slot.bookedHours) && slot.bookedHours.includes(h)) || h < currentHour
+                            slot.bookedHours?.includes(h) || h < currentHour
                           }
                         >
                           {`${h}:00 - ${h + 1}:00`}
                           {h < currentHour
                             ? ' (Expired)'
-                            : Array.isArray(slot.bookedHours) && slot.bookedHours.includes(h)
+                            : slot.bookedHours?.includes(h)
                             ? ' (Booked)'
                             : ''}
                         </option>

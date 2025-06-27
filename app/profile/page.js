@@ -191,7 +191,7 @@ export default function ProfilePage() {
         form.append('image', imageFile);
       }
 
-      const res = await axios.put(`/api/profile/${encodeURIComponent(formData.email)}`, form, {
+      const res = await axios.put(`/api/user/${encodeURIComponent(formData.email)}`, form, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
