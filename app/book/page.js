@@ -25,7 +25,7 @@ export default function BookingPage() {
           headers: { 'Content-Type': 'application/json' },
           withCredentials: true,
         });
-        console.log('Fetched slots:', res.data.slots); // Debug
+        console.log('Fetched slots:', JSON.stringify(res.data.slots, null, 2)); // Debug
         setSlots(res.data.slots);
         setCurrentHour(res.data.currentHour);
         setError(null);
@@ -156,7 +156,9 @@ export default function BookingPage() {
             {slots.map((slot) => {
               const today = new Date().toISOString().split('T')[0];
               const bookedHoursToday = (Array.isArray(slot.bookedHours) ? slot.bookedHours : []).filter(
-                (bh) => bh.date && bh.date.toISOString && bh.date.toISOString().split('T')[0] === today
+                (bh) =>
+                  bh.date &&
+                  (bh.date.toISOString ? bh.date.toISOString().split('T')[0] === today : new Date(bh.date).toISOString().split('T')[0] === today)
               ).map((bh) => bh.hour);
               return (
                 <div
@@ -164,6 +166,8 @@ export default function BookingPage() {
                   className="bg-white p-5 rounded-xl shadow-lg border hover:shadow-2xl transition-all duration-300"
                 >
                   <h2 className="text-xl font-bold text-indigo-700 mb-2">🆔 Slot: {slot.slotid}</h2>
+                  <p className="mb-1">📍 Lot: {slot.lotId?.lotName || 'Unknown'}</p>
+                  <p className="mb-1">🏠 Address: {slot.lotId?.address || 'Unknown'}</p>
                   <p className="mb-1">💸 Amount: ₹{slot.amount}</p>
                   <p className="mb-1">📅 Created: {new Date(slot.createdat).toLocaleDateString()}</p>
                   <p className="mt-2 text-green-600 font-medium">

@@ -10,11 +10,11 @@ export default async function refreshSlotDates() {
   const slots = await ParkingSlot.find({ isApproved: true });
 
   for (const slot of slots) {
-    slot.createdat = today;
-    slot.bookedHours = {}; // Clear old bookings
-    slot.alloted = false;  // Reset to available
+    slot.bookedHours = []; // Set to empty array
+    slot.alloted = false; // Reset to available
+    // Do not reset createdat to preserve slot creation date
     await slot.save();
   }
 
-  console.log(`✅ Refreshed slots: ${slots.length} updated with today's date and cleared hours.`);
+  console.log(`✅ Refreshed ${slots.length} slots: cleared bookedHours and reset alloted.`);
 }

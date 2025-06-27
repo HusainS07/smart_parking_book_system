@@ -1,5 +1,6 @@
 import dbConnect from '@/lib/dbConnect';
 import ParkingSlot from '@/models/parkingslots';
+import ParkingLot from '@/models/ParkingLot';
 import { NextResponse } from 'next/server';
 
 export async function GET(req) {
@@ -12,9 +13,11 @@ export async function GET(req) {
     const slots = await ParkingSlot.find({
       location,
       isApproved: true,
-    }).lean();
+    })
+      .populate('lotId', 'lotName address city')
+      .lean();
 
-    console.log('Fetched slots:', JSON.stringify(slots, null, 2)); // Debug
+    console.log(`Fetched ${slots.length} slots for location: ${location}`, JSON.stringify(slots, null, 2));
 
     const currentHour = new Date().getHours();
     return NextResponse.json({ slots, currentHour }, { status: 200 });
