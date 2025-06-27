@@ -11,8 +11,10 @@ export async function POST(req) {
 
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user.isAdmin) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    console.log('Session details:', JSON.stringify(session, null, 2));
+    if (!session || session.user.role !== 'admin') {
+      console.error('Unauthorized access attempt:', session?.user);
+      return NextResponse.json({ error: 'Unauthorized: Not an admin' }, { status: 401 });
     }
 
     const { lotId } = await req.json();
@@ -26,7 +28,7 @@ export async function POST(req) {
 
     lot.isApproved = true;
     await lot.save();
-    console.log('Approved lot:', lot); // Debug: Log approved lot
+    console.log('Approved lot:', lot);
 
     const slots = Array.from({ length: lot.totalSpots }).map(() => ({
       slotid: `S_${lot.city.toLowerCase()}_${uuidv4().slice(0, 6)}`,
@@ -41,7 +43,7 @@ export async function POST(req) {
     }));
 
     const createdSlots = await ParkingSlot.insertMany(slots);
-    console.log('Created slots:', createdSlots); // Debug: Log created slots
+    console.log('Created slots:', createdSlots);
 
     return NextResponse.json({ message: 'Lot approved and slots created', slots: createdSlots }, { status: 200 });
   } catch (err) {
