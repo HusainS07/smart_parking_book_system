@@ -9,11 +9,14 @@ export async function GET(req) {
 
   try {
     const session = await getServerSession(authOptions);
+    console.log('Session:', session); // Debug: Log session details
     if (!session || !session.user.isAdmin) {
+      console.error('Unauthorized access attempt:', { user: session?.user });
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const pendingLots = await ParkingLot.find({ isApproved: false }).lean();
+    const pendingLots = await ParkingLot.find({ isApproved: false });
+    console.log('Pending lots found:', pendingLots); // Debug: Log query result
     return NextResponse.json(pendingLots, { status: 200 });
   } catch (err) {
     console.error('Error fetching pending lots:', err);

@@ -11,7 +11,7 @@ export async function POST(req) {
 
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user.isAdmin) { // Assuming isAdmin field in session
+    if (!session || !session.user.isAdmin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -20,8 +20,13 @@ export async function POST(req) {
     const lot = await ParkingLot.findById(lotId);
     if (!lot) return NextResponse.json({ error: 'Lot not found' }, { status: 404 });
 
+    if (lot.isApproved) {
+      return NextResponse.json({ error: 'Lot already approved' }, { status: 400 });
+    }
+
     lot.isApproved = true;
     await lot.save();
+    console.log('Approved lot:', lot); // Debug: Log approved lot
 
     const slots = Array.from({ length: lot.totalSpots }).map(() => ({
       slotid: `S_${lot.city.toLowerCase()}_${uuidv4().slice(0, 6)}`,
@@ -32,12 +37,13 @@ export async function POST(req) {
       isApproved: true,
       paymentid: null,
       lotId: lot._id,
-      bookedHours: [], // Explicitly initialize as empty
+      bookedHours: [],
     }));
 
-    await ParkingSlot.insertMany(slots);
+    const createdSlots = await ParkingSlot.insertMany(slots);
+    console.log('Created slots:', createdSlots); // Debug: Log created slots
 
-    return NextResponse.json({ message: 'Lot approved and slots created' }, { status: 200 });
+    return NextResponse.json({ message: 'Lot approved and slots created', slots: createdSlots }, { status: 200 });
   } catch (err) {
     console.error('Slot creation error:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });

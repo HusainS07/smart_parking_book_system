@@ -34,6 +34,7 @@ export async function POST(req) {
       isApproved: false,
     });
 
+    console.log('Created lot:', newLot); // Debug: Log created lot
     return NextResponse.json(newLot, { status: 201 });
   } catch (err) {
     console.error('Error creating lot:', err);
@@ -54,6 +55,7 @@ export async function GET(req) {
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
     const lots = await ParkingLot.find({ ownerId: user._id }).lean();
+    console.log('Fetched lots for user:', lots); // Debug: Log fetched lots
     return NextResponse.json(lots, { status: 200 });
   } catch (err) {
     console.error('Error fetching lots:', err);
