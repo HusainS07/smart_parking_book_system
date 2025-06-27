@@ -9,7 +9,7 @@ export default function AdminDashboard() {
   const [pendingLots, setPendingLots] = useState([]);
   const [topUpRequests, setTopUpRequests] = useState([]);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('lots'); // 'lots' or 'topup'
+  const [activeTab, setActiveTab] = useState('lots');
 
   const isAdmin = session?.user?.role === 'admin';
 
@@ -50,12 +50,13 @@ export default function AdminDashboard() {
 
   const handleApproveLot = async (lotId) => {
     try {
-      await axios.post('/api/slots/create', { lotId }, {
+      const res = await axios.post('/api/admin/approve', { lotId }, {
         headers: { 'Content-Type': 'application/json' },
         withCredentials: true,
       });
       setPendingLots((prev) => prev.filter((lot) => lot._id !== lotId));
       setError(null);
+      alert(`Lot approved: ${res.data.message}`);
     } catch (err) {
       console.error('Failed to approve lot:', err);
       setError(err.response?.data?.error || 'Failed to approve lot');
@@ -64,12 +65,13 @@ export default function AdminDashboard() {
 
   const handleRejectLot = async (lotId) => {
     try {
-      await axios.post('/api/lots/reject', { lotId }, {
+      const res = await axios.post('/api/admin/reject', { lotId }, {
         headers: { 'Content-Type': 'application/json' },
         withCredentials: true,
       });
       setPendingLots((prev) => prev.filter((lot) => lot._id !== lotId));
       setError(null);
+      alert(`Lot rejected: ${res.data.message}`);
     } catch (err) {
       console.error('Failed to reject lot:', err);
       setError(err.response?.data?.error || 'Failed to reject lot');
@@ -85,6 +87,7 @@ export default function AdminDashboard() {
       if (res.data.success) {
         setTopUpRequests((prev) => prev.filter((req) => req._id !== id));
         setError(null);
+        alert(`Top-up request ${action}ed: ${res.data.message}`);
       }
     } catch (err) {
       console.error('Failed to update top-up request:', err);
