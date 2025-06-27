@@ -25,15 +25,19 @@ export default function BookingPage() {
           headers: { 'Content-Type': 'application/json' },
           withCredentials: true,
         });
-        console.log('Fetched slots:', JSON.stringify(res.data.slots, null, 2)); // Debug
+        console.log('Fetched slots:', JSON.stringify(res.data.slots, null, 2));
+        console.log('Server currentHour:', res.data.currentHour);
         setSlots(res.data.slots);
-        setCurrentHour(res.data.currentHour);
+        setCurrentHour(res.data.currentHour ?? new Date().getHours());
         setError(null);
       } catch (err) {
         console.error('Error fetching slots:', err);
         setError(err.response?.data?.error || 'Failed to load slots');
         setSlots([]);
-        setCurrentHour(new Date().getHours());
+        // Fallback to client IST time
+        const now = new Date();
+        const istOffset = 5.5 * 60 * 60 * 1000;
+        setCurrentHour(new Date(now.getTime() + istOffset).getHours());
       } finally {
         setLoading(false);
       }
@@ -160,6 +164,7 @@ export default function BookingPage() {
                   bh.date &&
                   (bh.date.toISOString ? bh.date.toISOString().split('T')[0] === today : new Date(bh.date).toISOString().split('T')[0] === today)
               ).map((bh) => bh.hour);
+              console.log(`Slot ${slot.slotid} bookedHoursToday:`, bookedHoursToday, `currentHour: ${currentHour}`);
               return (
                 <div
                   key={slot._id}
@@ -182,20 +187,20 @@ export default function BookingPage() {
                         onChange={(e) => setSelectedHour(Number(e.target.value))}
                       >
                         <option value="">🕓 Select Hour (0–23)</option>
-                        {hourOptions.map((h) => (
-                          <option
-                            key={h}
-                            value={h}
-                            disabled={bookedHoursToday.includes(h) || h < currentHour}
-                          >
-                            {`${h}:00–${h + 1}:00`}
-                            {h < currentHour
-                              ? ' (Expired)'
-                              : bookedHoursToday.includes(h)
-                              ? ' (Booked)'
-                              : ''}
-                          </option>
-                        ))}
+                        {hourOptions.map((h) => {
+                          const isDisabled = bookedHoursToday.includes(h) || h < currentHour;
+                          console.log(`Hour ${h} disabled: ${isDisabled}, booked: ${bookedHoursToday.includes(h)}, past: ${h < currentHour}`);
+                          return (
+                            <option
+                              key={h}
+                              value={h}
+                              disabled={isDisabled}
+                            >
+                              {`${h}:00–${h + 1}:00`}
+                              {isDisabled ? (bookedHoursToday.includes(h) ? ' (Booked)' : ' (Expired)') : ''}
+                            </option>
+                          );
+                        })}
                       </select>
 
                       <button

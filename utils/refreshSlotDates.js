@@ -10,9 +10,8 @@ export default async function refreshSlotDates() {
   const slots = await ParkingSlot.find({ isApproved: true });
 
   for (const slot of slots) {
-    slot.bookedHours = []; // Set to empty array
-    slot.alloted = false; // Reset to available
-    // Do not reset createdat to preserve slot creation date
+    slot.bookedHours = [];
+    slot.alloted = false;
     await slot.save();
   }
 
