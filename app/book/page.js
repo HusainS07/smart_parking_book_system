@@ -13,6 +13,7 @@ export default function BookingPage() {
   const [selectedHour, setSelectedHour] = useState(null);
   const [currentHour, setCurrentHour] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const hourOptions = Array.from({ length: 24 }, (_, i) => i);
 
@@ -20,13 +21,17 @@ export default function BookingPage() {
     async function fetchSlots() {
       try {
         setLoading(true);
-        const res = await axios.get(`/api/slots?location=${location}`);
-        const { slots, currentHour } = res.data;
-
-        setSlots(slots);
-        setCurrentHour(currentHour);
+        const res = await axios.get(`/api/slots?location=${location}`, {
+          headers: { 'Content-Type': 'application/json' },
+          withCredentials: true,
+        });
+        console.log('Fetched slots:', res.data.slots); // Debug
+        setSlots(res.data.slots);
+        setCurrentHour(res.data.currentHour);
+        setError(null);
       } catch (err) {
         console.error('Error fetching slots:', err);
+        setError(err.response?.data?.error || 'Failed to load slots');
         setSlots([]);
         setCurrentHour(new Date().getHours());
       } finally {
@@ -41,10 +46,14 @@ export default function BookingPage() {
     async function fetchWallet() {
       if (session?.user?.email) {
         try {
-          const res = await axios.get(`/api/wallet/amount`);
+          const res = await axios.get(`/api/wallet/amount`, {
+            headers: { 'Content-Type': 'application/json' },
+            withCredentials: true,
+          });
           setWallet(res.data.balance);
         } catch (err) {
           console.error('Wallet fetch error:', err);
+          setError('Failed to load wallet balance');
         }
       }
     }
@@ -71,12 +80,18 @@ export default function BookingPage() {
     try {
       const res = await axios.post('/api/wallet/deduct', {
         amount: slot.amount,
+      }, {
+        headers: { 'Content-Type': 'application/json' },
+        withCredentials: true,
       });
 
       await axios.post('/api/slots/book', {
         slotid: slot.slotid,
         hour: selectedHour,
         date: new Date().toISOString().split('T')[0],
+      }, {
+        headers: { 'Content-Type': 'application/json' },
+        withCredentials: true,
       });
 
       setWallet(res.data.newBalance);
@@ -87,7 +102,7 @@ export default function BookingPage() {
             ? {
                 ...s,
                 bookedHours: [
-                  ...(s.bookedHours || []),
+                  ...(Array.isArray(s.bookedHours) ? s.bookedHours : []),
                   { hour: selectedHour, email: session.user.email, date: new Date() },
                 ],
               }
@@ -112,6 +127,8 @@ export default function BookingPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 p-6">
       <div className="max-w-5xl mx-auto">
         <h1 className="text-4xl font-extrabold text-center text-blue-800 mb-8">🚗 Book Your Parking Slot</h1>
+
+        {error && <p className="text-red-500 text-center mb-4">{error}</p>}
 
         <div className="flex flex-col items-center space-y-4 mb-6 sm:flex-row sm:justify-between sm:space-y-0">
           <select
@@ -138,7 +155,7 @@ export default function BookingPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {slots.map((slot) => {
               const today = new Date().toISOString().split('T')[0];
-              const bookedHoursToday = (slot.bookedHours || []).filter(
+              const bookedHoursToday = (Array.isArray(slot.bookedHours) ? slot.bookedHours : []).filter(
                 (bh) => bh.date && bh.date.toISOString && bh.date.toISOString().split('T')[0] === today
               ).map((bh) => bh.hour);
               return (
