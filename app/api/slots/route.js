@@ -2,6 +2,9 @@ import dbConnect from '@/lib/dbConnect';
 import ParkingSlot from '@/models/parkingslots';
 import ParkingLot from '@/models/ParkingLot';
 import { NextResponse } from 'next/server';
+import { v4 as uuidv4 } from 'uuid';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 export async function GET(req) {
   try {

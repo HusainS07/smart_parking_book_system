@@ -8,13 +8,14 @@ export async function POST(req) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
+      console.error('❌ Unauthorized: No session found');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { slotid, hour, date, payment_id } = await req.json();
     const email = session.user.email;
 
-    console.log('Received booking payload:', { slotid, hour, date, payment_id, email });
+    console.log('Received booking payload:', { slotid, hour, date, payment_id, email, dateType: typeof date, rawDate: JSON.stringify(date) });
 
     if (!slotid || hour === undefined || !date) {
       console.error('❌ Missing data:', { slotid, hour, date, payment_id, email });
@@ -28,7 +29,7 @@ export async function POST(req) {
 
     const dateString = String(date);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-      console.error('❌ Invalid date format:', dateString, 'Type:', typeof date);
+      console.error('❌ Invalid date format:', dateString, 'Type:', typeof date, 'Raw:', JSON.stringify(date));
       return NextResponse.json({ error: 'Invalid date format (use YYYY-MM-DD)', received: dateString }, { status: 400 });
     }
 
@@ -55,7 +56,7 @@ export async function POST(req) {
     console.log(`✅ Slot ${slotid} booked at ${hour}:00–${hour + 1}:00 on ${dateString} by ${email} with payment_id: ${payment_id || 'none'}`);
     return NextResponse.json({ success: true, slot }, { status: 200 });
   } catch (err) {
-    console.error('❌ Internal server error:', err);
+    console.error('❌ Internal server error:', err.message, err.stack);
     return NextResponse.json({ error: 'Internal Server Error', details: err.message }, { status: 500 });
   }
 }

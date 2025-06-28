@@ -17,6 +17,15 @@ export default function BookingPage() {
 
   const hourOptions = Array.from({ length: 24 }, (_, i) => i);
 
+  // Helper function to format date as YYYY-MM-DD
+  const formatDate = (date) => {
+    const d = new Date(date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   useEffect(() => {
     async function fetchSlots() {
       try {
@@ -33,7 +42,7 @@ export default function BookingPage() {
         setError(null);
       } catch (err) {
         console.error('Error fetching slots:', err);
-        const errorMsg = err.response?.data?.error || `Failed to load slots for ${location}. Please try again or contact support.`;
+        const errorMsg = err.response?.data?.error || `Failed to load slots for ${location}. Please try another location or contact support.`;
         setError(errorMsg);
         setSlots([]);
         setCurrentHour(parseInt(new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour: 'numeric', hour12: false })));
@@ -81,15 +90,15 @@ export default function BookingPage() {
     }
 
     try {
+      const bookingDate = formatDate(new Date());
+      console.log('Wallet Booking Payload:', { slotid: slot.slotid, hour: selectedHour, date: bookingDate });
+
       const res = await axios.post('/api/wallet/deduct', {
         amount: slot.amount,
       }, {
         headers: { 'Content-Type': 'application/json' },
         withCredentials: true,
       });
-
-      const bookingDate = new Date().toLocaleString('en-CA', { timeZone: 'Asia/Kolkata' }).split('T')[0];
-      console.log('Wallet Booking Payload:', { slotid: slot.slotid, hour: selectedHour, date: bookingDate });
 
       await axios.post('/api/slots/book', {
         slotid: slot.slotid,
@@ -109,7 +118,7 @@ export default function BookingPage() {
                 ...s,
                 bookedHours: [
                   ...(Array.isArray(s.bookedHours) ? s.bookedHours : []),
-                  { hour: selectedHour, email: session.user.email, date: new Date() },
+                  { hour: selectedHour, email: session.user.email, date: new Date(bookingDate) },
                 ],
               }
             : s
@@ -153,7 +162,7 @@ export default function BookingPage() {
       document.body.appendChild(script);
 
       script.onload = () => {
-        const bookingDate = new Date().toLocaleString('en-CA', { timeZone: 'Asia/Kolkata' }).split('T')[0];
+        const bookingDate = formatDate(new Date());
         console.log('UPI Booking Payload:', {
           slotid: slot.slotid,
           hour: selectedHour,
@@ -192,7 +201,7 @@ export default function BookingPage() {
                           {
                             hour: selectedHour,
                             email: session.user.email,
-                            date: new Date(),
+                            date: new Date(bookingDate),
                             payment_id: response.razorpay_payment_id,
                           },
                         ],
@@ -270,11 +279,11 @@ export default function BookingPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {slots.map((slot) => {
-              const today = new Date().toLocaleString('en-CA', { timeZone: 'Asia/Kolkata' }).split('T')[0];
+              const today = formatDate(new Date());
               const bookedHoursToday = (Array.isArray(slot.bookedHours) ? slot.bookedHours : []).filter(
                 (bh) =>
                   bh.date &&
-                  (bh.date.toISOString ? bh.date.toISOString().split('T')[0] === today : new Date(bh.date).toLocaleString('en-CA', { timeZone: 'Asia/Kolkata' }).split('T')[0] === today)
+                  (bh.date.toISOString ? bh.date.toISOString().split('T')[0] === today : formatDate(new Date(bh.date)) === today)
               ).map((bh) => bh.hour);
               console.log(`Slot ${slot.slotid} bookedHoursToday:`, bookedHoursToday, `currentHour: ${currentHour}`);
               return (
