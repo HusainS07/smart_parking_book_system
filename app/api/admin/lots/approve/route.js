@@ -18,17 +18,25 @@ export async function POST(req) {
     }
 
     const { lotId } = await req.json();
+    if (!lotId) {
+      console.error('Missing lotId');
+      return NextResponse.json({ error: 'Missing lotId' }, { status: 400 });
+    }
 
     const lot = await ParkingLot.findById(lotId);
-    if (!lot) return NextResponse.json({ error: 'Lot not found' }, { status: 404 });
+    if (!lot) {
+      console.error('Lot not found:', lotId);
+      return NextResponse.json({ error: 'Lot not found' }, { status: 404 });
+    }
 
     if (lot.isApproved) {
+      console.error('Lot already approved:', lotId);
       return NextResponse.json({ error: 'Lot already approved' }, { status: 400 });
     }
 
     lot.isApproved = true;
     await lot.save();
-    console.log('Approved lot:', lot);
+    console.log('Approved lot:', lot._id, lot.city);
 
     const slots = Array.from({ length: lot.totalSpots }).map(() => ({
       slotid: `S_${lot.city.toLowerCase()}_${uuidv4().slice(0, 6)}`,
@@ -39,15 +47,15 @@ export async function POST(req) {
       isApproved: true,
       paymentid: null,
       lotId: lot._id,
-      bookedHours: [],
+      bookedHours: [], // Empty array, compatible with schema including payment_id
     }));
 
     const createdSlots = await ParkingSlot.insertMany(slots);
-    console.log('Created slots:', createdSlots);
+    console.log('Created slots:', createdSlots.map(s => s.slotid));
 
     return NextResponse.json({ message: 'Lot approved and slots created', slots: createdSlots }, { status: 200 });
   } catch (err) {
     console.error('Slot creation error:', err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: 'Internal Server Error', details: err.message }, { status: 500 });
   }
 }

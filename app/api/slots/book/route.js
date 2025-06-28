@@ -11,11 +11,11 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { slotid, hour, date } = await req.json();
+    const { slotid, hour, date, payment_id } = await req.json();
     const email = session.user.email;
 
     if (!slotid || hour === undefined || !date) {
-      console.error('❌ Missing data:', { email, slotid, hour, date });
+      console.error('❌ Missing data:', { email, slotid, hour, date, payment_id });
       return NextResponse.json({ error: 'Missing slotid, hour, or date' }, { status: 400 });
     }
 
@@ -45,10 +45,11 @@ export async function POST(req) {
       return NextResponse.json({ error: `Hour ${hour}:00–${hour + 1}:00 already booked on ${date}` }, { status: 400 });
     }
 
-    slot.bookedHours.push({ hour, email, date: new Date(date) });
+    slot.bookedHours.push({ hour, email, date: new Date(date), payment_id });
+    slot.paymentid = payment_id || slot.paymentid; // Update paymentid if provided
     await slot.save();
 
-    console.log(`✅ Slot ${slotid} booked at ${hour}:00–${hour + 1}:00 on ${date} by ${email}`);
+    console.log(`✅ Slot ${slotid} booked at ${hour}:00–${hour + 1}:00 on ${date} by ${email} with payment_id: ${payment_id || 'none'}`);
     return NextResponse.json({ success: true, slot }, { status: 200 });
   } catch (err) {
     console.error('❌ Internal server error:', err);

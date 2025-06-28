@@ -28,16 +28,13 @@ export default function BookingPage() {
         console.log('Fetched slots:', JSON.stringify(res.data.slots, null, 2));
         console.log('Server currentHour:', res.data.currentHour);
         setSlots(res.data.slots);
-        setCurrentHour(res.data.currentHour ?? new Date().getHours());
+        setCurrentHour(parseInt(new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour: 'numeric', hour12: false })));
         setError(null);
       } catch (err) {
         console.error('Error fetching slots:', err);
         setError(err.response?.data?.error || 'Failed to load slots');
         setSlots([]);
-        // Fallback to client IST time
-        const now = new Date();
-        const istOffset = 5.5 * 60 * 60 * 1000;
-        setCurrentHour(new Date(now.getTime() + istOffset).getHours());
+        setCurrentHour(parseInt(new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour: 'numeric', hour12: false })));
       } finally {
         setLoading(false);
       }
@@ -92,7 +89,7 @@ export default function BookingPage() {
       await axios.post('/api/slots/book', {
         slotid: slot.slotid,
         hour: selectedHour,
-        date: new Date().toISOString().split('T')[0],
+        date: new Date().toLocaleString('en-CA', { timeZone: 'Asia/Kolkata' }).split('T')[0],
       }, {
         headers: { 'Content-Type': 'application/json' },
         withCredentials: true,
@@ -123,8 +120,113 @@ export default function BookingPage() {
     }
   };
 
-  const handleUPIBooking = () => {
-    alert('UPI payment feature is in progress and will be introduced later.');
+  const handleUPIBooking = async (slot) => {
+    if (selectedHour === null) {
+      alert('Please select an hour');
+      return;
+    }
+
+    if (!session?.user) {
+      alert('Please log in');
+      return;
+    }
+
+    try {
+      // Create Razorpay order
+      const orderResponse = await axios.post('/api/payments/create-order', {
+        slotid: slot.slotid,
+        amount: slot.amount,
+      }, {
+        headers: { 'Content-Type': 'application/json' },
+        withCredentials: true,
+      });
+
+      const { orderId, amount, currency } = orderResponse.data;
+
+      // Load Razorpay SDK
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.async = true;
+      document.body.appendChild(script);
+
+      script.onload = () => {
+        const options = {
+          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+          amount: amount,
+          currency: currency,
+          order_id: orderId,
+          name: 'Parking Slot Booking',
+          description: `Booking for slot ${slot.slotid} at ${selectedHour}:00`,
+          image: '/logo.png', // Replace with your logo URL
+          handler: async (response) => {
+            try {
+              // Save booking with payment_id
+              await axios.post('/api/slots/book', {
+                slotid: slot.slotid,
+                hour: selectedHour,
+                date: new Date().toLocaleString('en-CA', { timeZone: 'Asia/Kolkata' }).split('T')[0],
+                payment_id: response.razorpay_payment_id,
+              }, {
+                headers: { 'Content-Type': 'application/json' },
+                withCredentials: true,
+              });
+
+              // Update frontend state
+              setSlots((prev) =>
+                prev.map((s) =>
+                  s.slotid === slot.slotid
+                    ? {
+                        ...s,
+                        bookedHours: [
+                          ...(Array.isArray(s.bookedHours) ? s.bookedHours : []),
+                          {
+                            hour: selectedHour,
+                            email: session.user.email,
+                            date: new Date(),
+                            payment_id: response.razorpay_payment_id,
+                          },
+                        ],
+                      }
+                    : s
+                )
+              );
+
+              alert(`✅ Booked slot ${slot.slotid} at ${selectedHour}:00–${selectedHour + 1}:00 via UPI. Payment ID: ${response.razorpay_payment_id}`);
+              setSelectedSlot(null);
+              setSelectedHour(null);
+            } catch (err) {
+              console.error('Booking error after payment:', err);
+              alert(`❌ Booking failed: ${err.response?.data?.error || 'Unknown error'}`);
+            }
+          },
+          prefill: {
+            email: session.user.email,
+            contact: session.user.phone || '',
+          },
+          theme: {
+            color: '#6B46C1',
+          },
+          method: {
+            upi: true,
+            card: false,
+            netbanking: false,
+            wallet: false,
+            emi: false,
+            paylater: false,
+          },
+        };
+
+        const rzp = new window.Razorpay(options);
+        rzp.open();
+      };
+
+      script.onerror = () => {
+        alert('❌ Failed to load Razorpay SDK');
+      };
+    } catch (err) {
+      console.error('UPI payment error:', err);
+      alert(`❌ UPI payment failed: ${err.response?.data?.error || 'Unknown error'}`);
+    }
   };
 
   return (
@@ -158,11 +260,11 @@ export default function BookingPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {slots.map((slot) => {
-              const today = new Date().toISOString().split('T')[0];
+              const today = new Date().toLocaleString('en-CA', { timeZone: 'Asia/Kolkata' }).split('T')[0];
               const bookedHoursToday = (Array.isArray(slot.bookedHours) ? slot.bookedHours : []).filter(
                 (bh) =>
                   bh.date &&
-                  (bh.date.toISOString ? bh.date.toISOString().split('T')[0] === today : new Date(bh.date).toISOString().split('T')[0] === today)
+                  (bh.date.toISOString ? bh.date.toISOString().split('T')[0] === today : new Date(bh.date).toLocaleString('en-CA', { timeZone: 'Asia/Kolkata' }).split('T')[0] === today)
               ).map((bh) => bh.hour);
               console.log(`Slot ${slot.slotid} bookedHoursToday:`, bookedHoursToday, `currentHour: ${currentHour}`);
               return (
@@ -212,7 +314,7 @@ export default function BookingPage() {
 
                       <button
                         className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 rounded-md transition"
-                        onClick={handleUPIBooking}
+                        onClick={() => handleUPIBooking(slot)}
                       >
                         📲 Pay with UPI
                       </button>
