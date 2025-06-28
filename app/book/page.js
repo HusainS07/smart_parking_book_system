@@ -21,6 +21,7 @@ export default function BookingPage() {
     async function fetchSlots() {
       try {
         setLoading(true);
+        console.log(`Fetching slots for location: ${location}`);
         const res = await axios.get(`/api/slots?location=${location}`, {
           headers: { 'Content-Type': 'application/json' },
           withCredentials: true,
@@ -28,11 +29,12 @@ export default function BookingPage() {
         console.log('Fetched slots:', JSON.stringify(res.data.slots, null, 2));
         console.log('Server currentHour:', res.data.currentHour);
         setSlots(res.data.slots);
-        setCurrentHour(parseInt(new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour: 'numeric', hour12: false })));
+        setCurrentHour(res.data.currentHour || parseInt(new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour: 'numeric', hour12: false })));
         setError(null);
       } catch (err) {
         console.error('Error fetching slots:', err);
-        setError(err.response?.data?.error || 'Failed to load slots');
+        const errorMsg = err.response?.data?.error || `Failed to load slots for ${location}. Please try again or contact support.`;
+        setError(errorMsg);
         setSlots([]);
         setCurrentHour(parseInt(new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour: 'numeric', hour12: false })));
       } finally {
@@ -135,7 +137,6 @@ export default function BookingPage() {
     }
 
     try {
-      // Create Razorpay order
       const orderResponse = await axios.post('/api/payments/create-order', {
         slotid: slot.slotid,
         amount: slot.amount,
@@ -146,7 +147,6 @@ export default function BookingPage() {
 
       const { orderId, amount, currency } = orderResponse.data;
 
-      // Load Razorpay SDK
       const script = document.createElement('script');
       script.src = 'https://checkout.razorpay.com/v1/checkout.js';
       script.async = true;
@@ -266,7 +266,7 @@ export default function BookingPage() {
         {loading ? (
           <p className="text-center text-lg text-gray-600">Loading slots...</p>
         ) : slots.length === 0 ? (
-          <p className="text-center text-red-500 text-lg">No slots found in {location}.</p>
+          <p className="text-center text-red-500 text-lg">No slots found in {location}. Please try another location or contact support.</p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {slots.map((slot) => {

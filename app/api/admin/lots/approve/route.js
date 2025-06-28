@@ -43,19 +43,42 @@ export async function POST(req) {
       createdat: new Date(),
       amount: lot.pricePerHour,
       alloted: false,
-      location: lot.city,
+      location: lot.city.toLowerCase(),
       isApproved: true,
       paymentid: null,
       lotId: lot._id,
-      bookedHours: [], // Empty array, compatible with schema including payment_id
+      bookedHours: [],
     }));
 
     const createdSlots = await ParkingSlot.insertMany(slots);
-    console.log('Created slots:', createdSlots.map(s => s.slotid));
+    console.log('Created slots:', createdSlots.map(s => ({ slotid: s.slotid, location: s.location, isApproved: s.isApproved })));
 
     return NextResponse.json({ message: 'Lot approved and slots created', slots: createdSlots }, { status: 200 });
   } catch (err) {
     console.error('Slot creation error:', err);
     return NextResponse.json({ error: 'Internal Server Error', details: err.message }, { status: 500 });
+  }
+}
+
+export async function GET(req) {
+  try {
+    await dbConnect();
+    const { searchParams } = new URL(req.url);
+    const location = searchParams.get('location')?.toLowerCase();
+    if (!location) {
+      console.error('Missing location parameter');
+      return NextResponse.json({ error: 'Missing location parameter' }, { status: 400 });
+    }
+
+    const slots = await ParkingSlot.find({ location, isApproved: true })
+      .populate('lotId', 'lotName address')
+      .lean();
+    const currentHour = parseInt(new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour: 'numeric', hour12: false }));
+
+    console.log(`Fetched ${slots.length} slots for location: ${location}`);
+    return NextResponse.json({ slots, currentHour }, { status: 200 });
+  } catch (err) {
+    console.error('Error fetching slots:', err);
+    return NextResponse.json({ error: 'Failed to load slots', details: err.message }, { status: 500 });
   }
 }
