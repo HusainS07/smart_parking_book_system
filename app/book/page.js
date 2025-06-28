@@ -17,7 +17,6 @@ export default function BookingPage() {
 
   const hourOptions = Array.from({ length: 24 }, (_, i) => i);
 
-  // Helper function to format date as YYYY-MM-DD
   const formatDate = (date) => {
     const d = new Date(date);
     const year = d.getFullYear();
@@ -146,6 +145,7 @@ export default function BookingPage() {
     }
 
     try {
+      console.log('Initiating UPI payment for slot:', slot.slotid);
       const orderResponse = await axios.post('/api/payments/create-order', {
         slotid: slot.slotid,
         amount: slot.amount,
@@ -155,6 +155,7 @@ export default function BookingPage() {
       });
 
       const { orderId, amount, currency } = orderResponse.data;
+      console.log('Order created:', { orderId, amount, currency });
 
       const script = document.createElement('script');
       script.src = 'https://checkout.razorpay.com/v1/checkout.js';
@@ -221,6 +222,8 @@ export default function BookingPage() {
           prefill: {
             email: session.user.email,
             contact: session.user.phone || '',
+            method: 'upi',
+            vpa: 'success@razorpay', // Test UPI ID for user input
           },
           theme: {
             color: '#6B46C1',
@@ -233,13 +236,22 @@ export default function BookingPage() {
             emi: false,
             paylater: false,
           },
+          upi: {
+            vpa: 'merchant@razorpay', // Replace with your test merchant UPI ID
+          },
         };
 
+        console.log('Razorpay Options:', options);
         const rzp = new window.Razorpay(options);
+        rzp.on('payment.failed', (response) => {
+          console.error('Payment failed:', response.error);
+          alert(`❌ Payment failed: ${response.error.description || 'Invalid UPI ID or payment issue'}`);
+        });
         rzp.open();
       };
 
       script.onerror = () => {
+        console.error('Failed to load Razorpay SDK');
         alert('❌ Failed to load Razorpay SDK');
       };
     } catch (err) {
