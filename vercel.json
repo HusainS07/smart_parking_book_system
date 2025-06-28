@@ -1,9 +1,0 @@
-{
-  "crons": [
-    {
-      "name": "refresh-slots",
-      "schedule": "30 18 * * *",
-      "path": "/api/test-refresh"
-    }
-  ]
-}

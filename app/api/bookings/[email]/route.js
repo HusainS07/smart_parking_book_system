@@ -18,8 +18,8 @@ export async function GET(request, { params }) {
 
     await dbConnect();
 
-    const currentDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-    const currentHour = new Date().getHours(); // 0–23 (e.g., 22 at 10:15 PM IST)
+    const currentDate = new Date().toLocaleString('en-CA', { timeZone: 'Asia/Kolkata' }).split('T')[0]; // YYYY-MM-DD in IST
+    console.log('Current Date:', currentDate);
 
     const slots = await ParkingSlot.find({
       'bookedHours.email': email,
@@ -32,9 +32,7 @@ export async function GET(request, { params }) {
             (bh) =>
               bh.email === email &&
               bh.date &&
-              bh.date.toISOString &&
-              bh.date.toISOString().split('T')[0] === currentDate &&
-              bh.hour >= currentHour
+              new Date(bh.date).toLocaleString('en-CA', { timeZone: 'Asia/Kolkata' }).split('T')[0] === currentDate
           )
           .map((bh) => ({
             slotid: slot.slotid,
@@ -44,6 +42,7 @@ export async function GET(request, { params }) {
           }))
       );
 
+    console.log('Found Bookings:', bookings);
     return NextResponse.json(bookings, { status: 200 });
   } catch (err) {
     console.error('❌ Error fetching bookings:', err);
