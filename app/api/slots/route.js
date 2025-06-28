@@ -1,34 +1,61 @@
 import dbConnect from '@/lib/dbConnect';
-import ParkingSlot from '@/models/parkingslots';
 import ParkingLot from '@/models/ParkingLot';
+import ParkingSlot from '@/models/parkingslots';
 import { NextResponse } from 'next/server';
+import { v4 as uuidv4 } from 'uuid';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
-export async function GET(req) {
+export async function POST(req) {
   await dbConnect();
 
   try {
-    const { searchParams } = new URL(req.url);
-    const location = searchParams.get('location')?.toLowerCase() || 'mumbai';
+    const session = await getServerSession(authOptions);
+    console.log('Session details:', JSON.stringify(session, null, 2));
+    if (!session || session.user.role !== 'admin') {
+      console.error('Unauthorized access attempt:', session?.user);
+      return NextResponse.json({ error: 'Unauthorized: Not an admin' }, { status: 401 });
+    }
 
-    const slots = await ParkingSlot.find({
-      location,
+    const { lotId } = await req.json();
+    if (!lotId) {
+      console.error('Missing lotId');
+      return NextResponse.json({ error: 'Missing lotId' }, { status: 400 });
+    }
+
+    const lot = await ParkingLot.findById(lotId);
+    if (!lot) {
+      console.error('Lot not found:', lotId);
+      return NextResponse.json({ error: 'Lot not found' }, { status: 404 });
+    }
+
+    if (lot.isApproved) {
+      console.error('Lot already approved:', lotId);
+      return NextResponse.json({ error: 'Lot already approved' }, { status: 400 });
+    }
+
+    lot.isApproved = true;
+    await lot.save();
+    console.log('Approved lot:', lot._id, lot.city);
+
+    const slots = Array.from({ length: lot.totalSpots }).map(() => ({
+      slotid: `S_${lot.city.toLowerCase()}_${uuidv4().slice(0, 6)}`,
+      createdat: new Date(),
+      amount: lot.pricePerHour,
+      alloted: false,
+      location: lot.city,
       isApproved: true,
-    })
-      .populate('lotId', 'lotName address city')
-      .lean();
+      paymentid: null,
+      lotId: lot._id,
+      bookedHours: [], // Empty array, compatible with schema including payment_id
+    }));
 
-    console.log(`Fetched ${slots.length} slots for location: ${location}`, JSON.stringify(slots, null, 2));
+    const createdSlots = await ParkingSlot.insertMany(slots);
+    console.log('Created slots:', createdSlots.map(s => s.slotid));
 
-    // Calculate IST time (UTC+5:30)
-    const now = new Date();
-    const istOffset = 5.5 * 60 * 60 * 1000; // 5 hours 30 minutes
-    const istTime = new Date(now.getTime() + istOffset);
-    const currentHour = istTime.getHours();
-    console.log('Server IST currentHour:', currentHour);
-
-    return NextResponse.json({ slots, currentHour }, { status: 200 });
+    return NextResponse.json({ message: 'Lot approved and slots created', slots: createdSlots }, { status: 200 });
   } catch (err) {
-    console.error('Error fetching slots:', err.message, err.stack);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error('Slot creation error:', err);
+    return NextResponse.json({ error: 'Internal Server Error', details: err.message }, { status: 500 });
   }
 }

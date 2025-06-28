@@ -86,10 +86,13 @@ export default function BookingPage() {
         withCredentials: true,
       });
 
+      const bookingDate = new Date().toLocaleString('en-CA', { timeZone: 'Asia/Kolkata' }).split('T')[0];
+      console.log('Wallet Booking Payload:', { slotid: slot.slotid, hour: selectedHour, date: bookingDate });
+
       await axios.post('/api/slots/book', {
         slotid: slot.slotid,
         hour: selectedHour,
-        date: new Date().toLocaleString('en-CA', { timeZone: 'Asia/Kolkata' }).split('T')[0],
+        date: bookingDate,
       }, {
         headers: { 'Content-Type': 'application/json' },
         withCredentials: true,
@@ -115,7 +118,7 @@ export default function BookingPage() {
       setSelectedSlot(null);
       setSelectedHour(null);
     } catch (err) {
-      console.error('Booking error:', err);
+      console.error('Wallet booking error:', err);
       alert(`❌ Booking failed: ${err.response?.data?.error || 'Unknown error'}`);
     }
   };
@@ -150,6 +153,14 @@ export default function BookingPage() {
       document.body.appendChild(script);
 
       script.onload = () => {
+        const bookingDate = new Date().toLocaleString('en-CA', { timeZone: 'Asia/Kolkata' }).split('T')[0];
+        console.log('UPI Booking Payload:', {
+          slotid: slot.slotid,
+          hour: selectedHour,
+          date: bookingDate,
+          payment_id: 'pending',
+        });
+
         const options = {
           key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
           amount: amount,
@@ -157,21 +168,20 @@ export default function BookingPage() {
           order_id: orderId,
           name: 'Parking Slot Booking',
           description: `Booking for slot ${slot.slotid} at ${selectedHour}:00`,
-          image: '/logo.png', // Replace with your logo URL
+          image: '/logo.png',
           handler: async (response) => {
             try {
-              // Save booking with payment_id
+              console.log('Razorpay Response:', response);
               await axios.post('/api/slots/book', {
                 slotid: slot.slotid,
                 hour: selectedHour,
-                date: new Date().toLocaleString('en-CA', { timeZone: 'Asia/Kolkata' }).split('T')[0],
+                date: bookingDate,
                 payment_id: response.razorpay_payment_id,
               }, {
                 headers: { 'Content-Type': 'application/json' },
                 withCredentials: true,
               });
 
-              // Update frontend state
               setSlots((prev) =>
                 prev.map((s) =>
                   s.slotid === slot.slotid
