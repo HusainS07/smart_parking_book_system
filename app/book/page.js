@@ -14,6 +14,7 @@ export default function BookingPage() {
   const [currentHour, setCurrentHour] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [toast, setToast] = useState({ message: '', type: '', visible: false });
 
   const hourOptions = Array.from({ length: 24 }, (_, i) => i);
 
@@ -23,6 +24,11 @@ export default function BookingPage() {
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+  };
+
+  const showToast = (message, type = 'error') => {
+    setToast({ message, type, visible: true });
+    setTimeout(() => setToast({ message: '', type: '', visible: false }), 3000);
   };
 
   useEffect(() => {
@@ -74,17 +80,17 @@ export default function BookingPage() {
 
   const handleWalletBooking = async (slot) => {
     if (selectedHour === null) {
-      alert('Please select an hour');
+      showToast('Please select an hour');
       return;
     }
 
     if (!session?.user) {
-      alert('Please log in');
+      showToast('Please log in');
       return;
     }
 
     if (wallet < slot.amount) {
-      alert('Insufficient wallet balance');
+      showToast('Insufficient wallet balance');
       return;
     }
 
@@ -124,23 +130,23 @@ export default function BookingPage() {
         )
       );
 
-      alert(`✅ Booked slot ${slot.slotid} at ${selectedHour}:00–${selectedHour + 1}:00. New balance: ₹${res.data.newBalance}`);
+      showToast(`Booked slot ${slot.slotid} at ${selectedHour}:00–${selectedHour + 1}:00. New balance: ₹${res.data.newBalance}`, 'success');
       setSelectedSlot(null);
       setSelectedHour(null);
     } catch (err) {
       console.error('Wallet booking error:', err);
-      alert(`❌ Booking failed: ${err.response?.data?.error || 'Unknown error'}`);
+      showToast(`Booking failed: ${err.response?.data?.error || 'Unknown error'}`);
     }
   };
 
   const handleUPIBooking = async (slot) => {
     if (selectedHour === null) {
-      alert('Please select an hour');
+      showToast('Please select an hour');
       return;
     }
 
     if (!session?.user) {
-      alert('Please log in');
+      showToast('Please log in');
       return;
     }
 
@@ -211,22 +217,22 @@ export default function BookingPage() {
                 )
               );
 
-              alert(`✅ Booked slot ${slot.slotid} at ${selectedHour}:00–${selectedHour + 1}:00 via UPI. Payment ID: ${response.razorpay_payment_id}`);
+              showToast(`Booked slot ${slot.slotid} at ${selectedHour}:00–${selectedHour + 1}:00 via UPI. Payment ID: ${response.razorpay_payment_id}`, 'success');
               setSelectedSlot(null);
               setSelectedHour(null);
             } catch (err) {
               console.error('Booking error after payment:', err);
-              alert(`❌ Booking failed: ${err.response?.data?.error || 'Unknown error'}`);
+              showToast(`Booking failed: ${err.response?.data?.error || 'Unknown error'}`);
             }
           },
           prefill: {
             email: session.user.email,
             contact: session.user.phone || '',
             method: 'upi',
-            vpa: 'success@razorpay', // Test UPI ID for user input
+            vpa: 'success@razorpay', // Test UPI ID for test mode
           },
           theme: {
-            color: '#6B46C1',
+            color: '#4B0082', // Indigo for branding
           },
           method: {
             upi: true,
@@ -236,58 +242,82 @@ export default function BookingPage() {
             emi: false,
             paylater: false,
           },
-          upi: {
-            vpa: 'merchant@razorpay', // Replace with your test merchant UPI ID
-          },
         };
 
         console.log('Razorpay Options:', options);
         const rzp = new window.Razorpay(options);
         rzp.on('payment.failed', (response) => {
           console.error('Payment failed:', response.error);
-          alert(`❌ Payment failed: ${response.error.description || 'Invalid UPI ID or payment issue'}`);
+          showToast(`Payment failed: ${response.error.description || 'Invalid UPI ID or payment issue'}`);
         });
         rzp.open();
       };
 
       script.onerror = () => {
         console.error('Failed to load Razorpay SDK');
-        alert('❌ Failed to load Razorpay SDK');
+        showToast('Failed to load Razorpay SDK');
       };
     } catch (err) {
       console.error('UPI payment error:', err);
-      alert(`❌ UPI payment failed: ${err.response?.data?.error || 'Unknown error'}`);
+      showToast(`UPI payment failed: ${err.response?.data?.error || 'Unknown error'}`);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 p-6">
-      <div className="max-w-5xl mx-auto">
-        <h1 className="text-4xl font-extrabold text-center text-blue-800 mb-8">🚗 Book Your Parking Slot</h1>
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto">
+        <h1 className="text-4xl font-bold text-center text-indigo-900 mb-10 tracking-tight">🚗 Book Your Parking Slot</h1>
 
-        {error && <p className="text-red-500 text-center mb-4">{error}</p>}
-
-        <div className="flex flex-col items-center space-y-4 mb-6 sm:flex-row sm:justify-between sm:space-y-0">
-          <select
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            className="border-2 border-blue-400 bg-white px-4 py-2 rounded-md text-lg shadow-md focus:outline-none focus:ring-2 focus:ring-blue-300"
+        {toast.visible && (
+          <div
+            className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg text-white text-sm font-medium animate-slide-in-out ${
+              toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'
+            }`}
           >
-            <option value="mumbai">Mumbai</option>
-            <option value="delhi">Delhi</option>
-            <option value="bangalore">Bangalore</option>
-            <option value="pune">Pune</option>
-          </select>
+            {toast.message}
+          </div>
+        )}
 
-          <p className="text-blue-700 font-semibold">
-            💰 Wallet Balance: <span className="text-green-600">₹{wallet}</span>
-          </p>
+        {error && (
+          <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-8 rounded-lg">
+            <p>{error}</p>
+          </div>
+        )}
+
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 mb-10">
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <select
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              className="w-full sm:w-64 bg-white border border-gray-300 rounded-lg px-4 py-2 text-gray-700 focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition duration-200"
+            >
+              <option value="mumbai">Mumbai</option>
+              <option value="delhi">Delhi</option>
+              <option value="bangalore">Bangalore</option>
+              <option value="pune">Pune</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2 text-gray-700 font-medium">
+            <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+            </svg>
+            Wallet Balance: <span className="text-green-600 font-semibold">₹{wallet}</span>
+          </div>
         </div>
 
         {loading ? (
-          <p className="text-center text-lg text-gray-600">Loading slots...</p>
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-indigo-600"></div>
+          </div>
         ) : slots.length === 0 ? (
-          <p className="text-center text-red-500 text-lg">No slots found in {location}. Please try another location or contact support.</p>
+          <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-lg text-center">
+            No slots found in {location}. Try another location or contact support.
+          </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {slots.map((slot) => {
@@ -301,21 +331,49 @@ export default function BookingPage() {
               return (
                 <div
                   key={slot._id}
-                  className="bg-white p-5 rounded-xl shadow-lg border hover:shadow-2xl transition-all duration-300"
+                  className="bg-white p-6 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 animate-fade-in"
                 >
-                  <h2 className="text-xl font-bold text-indigo-700 mb-2">🆔 Slot: {slot.slotid}</h2>
-                  <p className="mb-1">📍 Lot: {slot.lotId?.lotName || 'Unknown'}</p>
-                  <p className="mb-1">🏠 Address: {slot.lotId?.address || 'Unknown'}</p>
-                  <p className="mb-1">💸 Amount: ₹{slot.amount}</p>
-                  <p className="mb-1">📅 Created: {new Date(slot.createdat).toLocaleDateString()}</p>
-                  <p className="mt-2 text-green-600 font-medium">
-                    ✅ Available Hours: {24 - bookedHoursToday.length}
+                  <h2 className="text-xl font-semibold text-indigo-800 mb-3 flex items-center gap-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    Slot: {slot.slotid}
+                  </h2>
+                  <p className="text-gray-600 mb-2 flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    </svg>
+                    Lot: {slot.lotId?.lotName || 'Unknown'}
+                  </p>
+                  <p className="text-gray-600 mb-2 flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                    </svg>
+                    Address: {slot.lotId?.address || 'Unknown'}
+                  </p>
+                  <p className="text-gray-600 mb-2 flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Amount: ₹{slot.amount}
+                  </p>
+                  <p className="text-gray-600 mb-4 flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    Created: {new Date(slot.createdat).toLocaleDateString()}
+                  </p>
+                  <p className="text-green-600 font-medium flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    Available Hours: {24 - bookedHoursToday.length}
                   </p>
 
                   {selectedSlot === slot._id ? (
-                    <div className="mt-4 space-y-2">
+                    <div className="mt-6 space-y-4">
                       <select
-                        className="w-full p-2 rounded-md border-2 border-gray-300 focus:border-blue-400 focus:outline-none"
+                        className="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-2 text-gray-700 focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition duration-200"
                         value={selectedHour ?? ''}
                         onChange={(e) => setSelectedHour(Number(e.target.value))}
                       >
@@ -328,6 +386,7 @@ export default function BookingPage() {
                               key={h}
                               value={h}
                               disabled={isDisabled}
+                              className={isDisabled ? 'text-gray-400' : 'text-gray-700'}
                             >
                               {`${h}:00–${h + 1}:00`}
                               {isDisabled ? (bookedHoursToday.includes(h) ? ' (Booked)' : ' (Expired)') : ''}
@@ -337,38 +396,50 @@ export default function BookingPage() {
                       </select>
 
                       <button
-                        className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-md transition"
+                        className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 rounded-lg transition duration-200 flex items-center justify-center gap-2"
                         onClick={() => handleWalletBooking(slot)}
                       >
-                        💼 Pay with Wallet
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                        </svg>
+                        Pay with Wallet
                       </button>
 
                       <button
-                        className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 rounded-md transition"
+                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 rounded-lg transition duration-200 flex items-center justify-center gap-2"
                         onClick={() => handleUPIBooking(slot)}
                       >
-                        📲 Pay with UPI
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                        Pay with UPI
                       </button>
 
                       <button
-                        className="w-full bg-gray-300 hover:bg-gray-400 text-black font-medium py-2 rounded-md"
+                        className="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2 rounded-lg transition duration-200 flex items-center justify-center gap-2"
                         onClick={() => {
                           setSelectedSlot(null);
                           setSelectedHour(null);
                         }}
                       >
-                        ❌ Cancel
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        Cancel
                       </button>
                     </div>
                   ) : (
                     <button
-                      className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-md transition"
+                      className="mt-6 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 rounded-lg transition duration-200 flex items-center justify-center gap-2"
                       onClick={() => {
                         setSelectedSlot(slot._id);
                         setSelectedHour(null);
                       }}
                     >
-                      📅 Book Now
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      Book Now
                     </button>
                   )}
                 </div>
@@ -377,6 +448,25 @@ export default function BookingPage() {
           </div>
         )}
       </div>
+
+      <style jsx>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes slideInOut {
+          0% { transform: translateX(100%); opacity: 0; }
+          10% { transform: translateX(0); opacity: 1; }
+          90% { transform: translateX(0); opacity: 1; }
+          100% { transform: translateX(100%); opacity: 0; }
+        }
+        .animate-fade-in {
+          animation: fadeIn 0.5s ease-out;
+        }
+        .animate-slide-in-out {
+          animation: slideInOut 3s ease-in-out;
+        }
+      `}</style>
     </div>
   );
 }
