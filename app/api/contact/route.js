@@ -181,7 +181,7 @@ export async function POST(req) {
 
     const cleanQuery = query.trim();
     
-    // Find best matching FAQ using keyword-based approach
+    // Find best matching FAQ using keyword 
     const bestMatch = findBestMatch(cleanQuery);
     
     console.log(`Best match for "${cleanQuery}":`, {
