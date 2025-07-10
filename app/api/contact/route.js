@@ -80,12 +80,19 @@ function findBestMatch(query) {
 // 🔹 OpenRouter Chat Completion API
 async function getChatCompletion(prompt) {
   try {
+    // Validate environment variables
+    if (!process.env.OPENROUTER_API_KEY) {
+      throw new Error("OPENROUTER_API_KEY is not set in environment variables");
+    }
+
+    console.log("Sending request to OpenRouter with prompt:", prompt);
+
     const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        "HTTP-Referer": process.env.YOUR_SITE_URL || "https://yourwebsite.com", // Optional
-        "X-Title": process.env.YOUR_SITE_NAME || "Smart Parking System", // Optional
+        "HTTP-Referer": process.env.YOUR_SITE_URL || "https://yourwebsite.com",
+        "X-Title": process.env.YOUR_SITE_NAME || "Smart Parking System",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -94,14 +101,14 @@ async function getChatCompletion(prompt) {
           {
             role: "system",
             content:
-              "You are a helpful customer service assistant for a Smart Parking System. Provide concise, natural, and informative responses to user questions.",
+              "You are a helpful customer service assistant for a Smart Parking System. Your goal is to provide a clear, concise, and natural response to the user's question, rephrasing the provided FAQ answer to match the user's query style and intent. Do not mention that the response is based on an FAQ. Keep the tone friendly and professional.",
           },
           {
             role: "user",
             content: prompt,
           },
         ],
-        max_tokens: 250, // Equivalent to max_new_tokens in Hugging Face
+        max_tokens: 250,
         temperature: 0.7,
         top_p: 0.9,
       }),
@@ -109,24 +116,29 @@ async function getChatCompletion(prompt) {
 
     if (!res.ok) {
       const errorText = await res.text();
-      console.error("Chat generation failed:", res.status, errorText);
-      throw new Error(`Chat API error: ${res.status}`);
+      console.error("OpenRouter API error:", res.status, errorText);
+      throw new Error(`OpenRouter API error: ${res.status} - ${errorText}`);
     }
 
     const data = await res.json();
+    console.log("OpenRouter API response:", JSON.stringify(data, null, 2));
+
     const generatedText = data.choices?.[0]?.message?.content;
 
     if (!generatedText) {
-      throw new Error("No valid response from OpenRouter API");
+      throw new Error("No valid response content from OpenRouter API");
     }
 
     // Clean up the response
     const cleanedText = generatedText.trim();
-    return cleanedText || "I'd be happy to help you with that! Please contact our support team for detailed assistance.";
+    if (!cleanedText) {
+      throw new Error("Empty response from OpenRouter API");
+    }
+
+    return cleanedText;
   } catch (error) {
-    console.error("Chat completion error:", error);
-    // Return null to fall back to the original FAQ answer if AI generation fails
-    return null;
+    console.error("Chat completion error:", error.message);
+    return null; // Fallback to FAQ answer
   }
 }
 
@@ -175,7 +187,9 @@ export async function POST(req) {
     console.log(`Best match for "${cleanQuery}":`, {
       faqId: bestMatch.faq?.id,
       score: bestMatch.score,
-      threshold: 0.3
+      threshold: 0.3,
+      matchedQuestion: bestMatch.faq?.question,
+      defaultAnswer: bestMatch.faq?.answer
     });
 
     // If we have a good match (score > 0.3), provide an answer
@@ -183,19 +197,20 @@ export async function POST(req) {
       let finalAnswer = bestMatch.faq.answer;
       
       // Try to generate a more natural response using AI
-      const prompt = `You are a helpful customer service assistant for a Smart Parking System.
+      const prompt = `User's question: "${cleanQuery}"
 
-User's question: "${cleanQuery}"
-
-Based on this FAQ information:
+Based on this information:
 Question: "${bestMatch.faq.question}"
 Answer: "${bestMatch.faq.answer}"
 
-Please provide a helpful, natural, and clear response to the user's question. Keep it concise but informative. Don't mention that this is based on an FAQ.`;
+Provide a helpful, natural, and clear response to the user's question, rephrasing the answer to match the user's query style and intent. Keep it concise, friendly, and informative.`;
 
       const aiAnswer = await getChatCompletion(prompt);
       if (aiAnswer) {
         finalAnswer = aiAnswer;
+        console.log("AI-generated answer:", finalAnswer);
+      } else {
+        console.log("Falling back to FAQ answer due to AI failure");
       }
 
       return new Response(
@@ -203,7 +218,8 @@ Please provide a helpful, natural, and clear response to the user's question. Ke
           answer: finalAnswer,
           matched: true,
           matchedFaq: bestMatch.faq.question,
-          confidence: Math.round(bestMatch.score * 100)
+          confidence: Math.round(bestMatch.score * 100),
+          isAIGenerated: !!aiAnswer
         }), 
         {
           status: 200,
@@ -232,7 +248,7 @@ Please provide a helpful, natural, and clear response to the user's question. Ke
     );
 
   } catch (error) {
-    console.error("API error:", error);
+    console.error("API error:", error.message);
     
     let errorMessage = "We're experiencing technical difficulties. Please try again in a few minutes.";
     
