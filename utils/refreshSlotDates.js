@@ -7,13 +7,41 @@ export default async function refreshSlotDates() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const slots = await ParkingSlot.find({ isApproved: true });
+  const slots = await ParkingSlot.find({ isApproved: true }).select('slotid bookedHours alloted');
 
-  for (const slot of slots) {
-    slot.bookedHours = [];
-    slot.alloted = false;
-    await slot.save();
+  const bulkOps = slots.map((slot) => {
+    const updatedBookedHours = (slot.bookedHours || []).filter(
+      (bh) => bh.date && new Date(bh.date).toISOString().split('T')[0] >= today.toISOString().split('T')[0]
+    );
+
+    return {
+      updateOne: {
+        filter: { _id: slot._id },
+        update: {
+          $set: {
+            bookedHours: updatedBookedHours,
+            alloted: false,
+            lastRefreshed: today,
+          },
+        },
+      },
+    };
+  });
+
+  if (bulkOps.length > 0) {
+    let attempts = 0;
+    const maxRetries = 3;
+    while (attempts < maxRetries) {
+      try {
+        await ParkingSlot.bulkWrite(bulkOps, { ordered: false });
+        return;
+      } catch (err) {
+        attempts++;
+        if (attempts === maxRetries) {
+          throw err;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+    }
   }
-
-  console.log(`✅ Refreshed ${slots.length} slots: cleared bookedHours and reset alloted.`);
 }

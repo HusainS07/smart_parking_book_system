@@ -1,9 +1,6 @@
 import dbConnect from "@/lib/dbConnect";
 import Help from "@/models/help";
 
-const HUGGINGFACE_API_KEY = process.env.HUGGINGFACE_API_KEY;
-const CHAT_MODEL = "mistralai/Mistral-7B-Instruct-v0.1";
-
 const faqs = [
   {
     id: 1,
@@ -80,29 +77,35 @@ function findBestMatch(query) {
   return bestMatch;
 }
 
-// 🔹 Hugging Face Chat Completion API
+// 🔹 OpenRouter Chat Completion API
 async function getChatCompletion(prompt) {
   try {
-    const res = await fetch(
-      `https://api-inference.huggingface.co/models/${CHAT_MODEL}`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${HUGGINGFACE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          inputs: prompt,
-          parameters: {
-            max_new_tokens: 250,
-            temperature: 0.7,
-            do_sample: true,
-            top_p: 0.9,
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        "HTTP-Referer": process.env.YOUR_SITE_URL || "https://yourwebsite.com", // Optional
+        "X-Title": process.env.YOUR_SITE_NAME || "Smart Parking System", // Optional
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "tngtech/deepseek-r1t2-chimera:free",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a helpful customer service assistant for a Smart Parking System. Provide concise, natural, and informative responses to user questions.",
           },
-          options: { wait_for_model: true }
-        }),
-      }
-    );
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        max_tokens: 250, // Equivalent to max_new_tokens in Hugging Face
+        temperature: 0.7,
+        top_p: 0.9,
+      }),
+    });
 
     if (!res.ok) {
       const errorText = await res.text();
@@ -111,20 +114,18 @@ async function getChatCompletion(prompt) {
     }
 
     const data = await res.json();
-    
-    let generatedText = "";
-    if (Array.isArray(data) && data[0]?.generated_text) {
-      generatedText = data[0].generated_text;
-    } else if (data.generated_text) {
-      generatedText = data.generated_text;
+    const generatedText = data.choices?.[0]?.message?.content;
+
+    if (!generatedText) {
+      throw new Error("No valid response from OpenRouter API");
     }
 
     // Clean up the response
-    const cleanedText = generatedText.replace(prompt, "").trim();
+    const cleanedText = generatedText.trim();
     return cleanedText || "I'd be happy to help you with that! Please contact our support team for detailed assistance.";
   } catch (error) {
     console.error("Chat completion error:", error);
-    // Return the original FAQ answer if AI generation fails
+    // Return null to fall back to the original FAQ answer if AI generation fails
     return null;
   }
 }
