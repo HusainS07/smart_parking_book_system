@@ -45,7 +45,7 @@ export default function BookClient({ initialSlots, initialWallet, session, locat
         console.log('Client: Fetched slots:', JSON.stringify(res.data.slots, null, 2));
         setSlots(res.data.slots);
         setCurrentHourState(res.data.currentHour || parseInt(new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour: 'numeric', hour12: false })));
-        setError(null);
+        setError(null); // Clear error if slots fetch succeeds
       } catch (err) {
         console.error('Client: Error fetching slots:', err);
         const errorMsg = err.response?.data?.error || `Failed to load slots for ${selectedLocation}. Please try another location or contact support.`;
@@ -72,15 +72,21 @@ export default function BookClient({ initialSlots, initialWallet, session, locat
           });
           setWallet(res.data.balance);
           console.log(`Client: Fetched wallet balance: ₹${res.data.balance}`);
+          // Clear wallet-related error if fetch succeeds
+          if (error === 'Wallet balance may not be up-to-date. Please refresh or contact support.' || error === 'Failed to load wallet balance') {
+            setError(null);
+          }
         } catch (err) {
           console.error('Client: Wallet fetch error:', err);
-          setError('Failed to load wallet balance');
+          setError('Wallet balance may not be up-to-date. Please refresh or contact support.');
         }
+      } else {
+        console.log('Client: No session or email found, skipping wallet fetch');
       }
     }
 
     fetchWallet();
-  }, [session]);
+  }, [session, error]);
 
   const handleWalletBooking = async (slot) => {
     if (selectedHour === null) {

@@ -74,9 +74,15 @@ export default async function BookPage({ searchParams }) {
       wallet = await fetchWallet(session.user.email);
       console.log(`Server: Fetched wallet balance: ₹${wallet} for ${session.user.email}`);
     } catch (err) {
-      error = error || 'Failed to load wallet balance';
-      console.error('Server: Wallet fetch error:', err);
+      // Suppress wallet error to avoid UI clutter, as client-side fetch will retry
+      console.error(`Server: Wallet fetch error for ${session.user.email}:`, err);
+      // Only set error if slots also failed, to prioritize critical errors
+      if (!error) {
+        error = 'Wallet balance may not be up-to-date. Please refresh or contact support.';
+      }
     }
+  } else {
+    console.log('Server: No session or email found, skipping wallet fetch');
   }
 
   return (
