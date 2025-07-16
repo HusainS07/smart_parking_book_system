@@ -415,12 +415,6 @@ export default function BookClient({ initialSlots, initialWallet, session, locat
                   </svg>
                   Created: {new Date(slot.createdat).toLocaleDateString()}
                 </p>
-                <p className="text-green-600 font-medium flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                  </svg>
-                  Available Hours: {24 - bookedHoursToday.length}
-                </p>
 
                 {selectedSlot === slot._id ? (
                   <div className="mt-6 space-y-4">
