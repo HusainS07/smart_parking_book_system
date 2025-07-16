@@ -15,7 +15,9 @@ export default function BookClient({ initialSlots, initialWallet, session, locat
   const [selectedHour, setSelectedHour] = useState(null);
   const [currentHourState, setCurrentHourState] = useState(currentHour);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(initialError);
+  const [error, setError] = useState(
+    initialError && !initialError.includes('wallet') ? initialError : null
+  );
   const [toast, setToast] = useState({ message: '', type: '', visible: false });
 
   const hourOptions = Array.from({ length: 24 }, (_, i) => i);
@@ -72,13 +74,10 @@ export default function BookClient({ initialSlots, initialWallet, session, locat
           });
           setWallet(res.data.balance);
           console.log(`Client: Fetched wallet balance: ₹${res.data.balance}`);
-          // Clear wallet-related error if fetch succeeds
-          if (error === 'Wallet balance may not be up-to-date. Please refresh or contact support.' || error === 'Failed to load wallet balance') {
-            setError(null);
-          }
+          setError(null); // Clear any wallet-related errors on success
         } catch (err) {
           console.error('Client: Wallet fetch error:', err);
-          setError('Wallet balance may not be up-to-date. Please refresh or contact support.');
+          // Don't set error for wallet failure to avoid UI flicker
         }
       } else {
         console.log('Client: No session or email found, skipping wallet fetch');
@@ -86,7 +85,7 @@ export default function BookClient({ initialSlots, initialWallet, session, locat
     }
 
     fetchWallet();
-  }, [session, error]);
+  }, [session]);
 
   const handleWalletBooking = async (slot) => {
     if (selectedHour === null) {
