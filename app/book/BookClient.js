@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Pusher from 'pusher-js';
 
 export default function BookClient({ initialSlots, initialWallet, session, location, currentHour, initialError }) {
   const router = useRouter();
@@ -35,6 +36,40 @@ export default function BookClient({ initialSlots, initialWallet, session, locat
     setTimeout(() => setToast({ message: '', type: '', visible: false }), 3000);
   };
 
+  // Initialize Pusher for real-time updates
+  useEffect(() => {
+    const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY, {
+      cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER,
+    });
+    const channel = pusher.subscribe('parking-bookings');
+
+    channel.bind('booking_created', (data) => {
+      console.log('Client: Received webhook:', data);
+      if (data.location === selectedLocation) {
+        setSlots((prev) =>
+          prev.map((s) =>
+            s.slotid === data.slotid
+              ? {
+                  ...s,
+                  bookedHours: [
+                    ...(Array.isArray(s.bookedHours) ? s.bookedHours : []),
+                    { hour: data.hour, email: data.email, date: new Date(data.date) },
+                  ],
+                }
+              : s
+          )
+        );
+        showToast(`Slot ${data.slotid} booked at ${data.hour}:00–${data.hour + 1}:00`, 'info');
+      }
+    });
+
+    return () => {
+      channel.unbind_all();
+      channel.unsubscribe();
+      pusher.disconnect();
+    };
+  }, [selectedLocation]);
+
   useEffect(() => {
     async function fetchSlots() {
       try {
@@ -47,7 +82,7 @@ export default function BookClient({ initialSlots, initialWallet, session, locat
         console.log('Client: Fetched slots:', JSON.stringify(res.data.slots, null, 2));
         setSlots(res.data.slots);
         setCurrentHourState(res.data.currentHour || parseInt(new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour: 'numeric', hour12: false })));
-        setError(null); // Clear error if slots fetch succeeds
+        setError(null);
       } catch (err) {
         console.error('Client: Error fetching slots:', err);
         const errorMsg = err.response?.data?.error || `Failed to load slots for ${selectedLocation}. Please try another location or contact support.`;
@@ -74,10 +109,9 @@ export default function BookClient({ initialSlots, initialWallet, session, locat
           });
           setWallet(res.data.balance);
           console.log(`Client: Fetched wallet balance: ₹${res.data.balance}`);
-          setError(null); // Clear any wallet-related errors on success
+          setError(null);
         } catch (err) {
           console.error('Client: Wallet fetch error:', err);
-          // Don't set error for wallet failure to avoid UI flicker
         }
       } else {
         console.log('Client: No session or email found, skipping wallet fetch');
@@ -105,7 +139,7 @@ export default function BookClient({ initialSlots, initialWallet, session, locat
 
     try {
       const bookingDate = formatDate(new Date());
-      console.log('Client: Wallet Booking Payload:', { slotid: slot.slotid, hour: selectedHour, date: bookingDate });
+      console.log('Client: Wallet Booking Payload:', { slotid: slot.slotid, hour: selectedHour, date: bookingDate, email: session.user.email, location: selectedLocation });
 
       const res = await axios.post('/api/wallet/deduct', {
         amount: slot.amount,
@@ -118,6 +152,8 @@ export default function BookClient({ initialSlots, initialWallet, session, locat
         slotid: slot.slotid,
         hour: selectedHour,
         date: bookingDate,
+        email: session.user.email,
+        location: selectedLocation,
       }, {
         headers: { 'Content-Type': 'application/json' },
         withCredentials: true,
@@ -183,7 +219,8 @@ export default function BookClient({ initialSlots, initialWallet, session, locat
           slotid: slot.slotid,
           hour: selectedHour,
           date: bookingDate,
-          payment_id: 'pending',
+          email: session.user.email,
+          location: selectedLocation,
         });
 
         const options = {
@@ -202,6 +239,8 @@ export default function BookClient({ initialSlots, initialWallet, session, locat
                 hour: selectedHour,
                 date: bookingDate,
                 payment_id: response.razorpay_payment_id,
+                email: session.user.email,
+                location: selectedLocation,
               }, {
                 headers: { 'Content-Type': 'application/json' },
                 withCredentials: true,
@@ -238,7 +277,7 @@ export default function BookClient({ initialSlots, initialWallet, session, locat
             email: session.user.email,
             contact: session.user.phone || '',
             method: 'upi',
-            vpa: 'success@razorpay', // Test UPI ID for test mode
+            vpa: 'success@razorpay',
           },
           theme: {
             color: '#4B0082',
@@ -284,7 +323,7 @@ export default function BookClient({ initialSlots, initialWallet, session, locat
       {toast.visible && (
         <div
           className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg text-white text-sm font-medium animate-slide-in-out ${
-            toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'
+            toast.type === 'success' ? 'bg-green-600' : toast.type === 'info' ? 'bg-blue-600' : 'bg-red-600'
           }`}
         >
           {toast.message}

@@ -1,8 +1,10 @@
+
 import dbConnect from '@/lib/dbConnect';
 import ParkingSlot from '@/models/parkingslots';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { triggerBookingWebhook } from '../../webhooks/bookings/route';
 
 export async function POST(req) {
   try {
@@ -12,14 +14,14 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { slotid, hour, date, payment_id } = await req.json();
+    const { slotid, hour, date, payment_id, location } = await req.json();
     const email = session.user.email;
 
-    console.log('Received booking payload:', { slotid, hour, date, payment_id, email, dateType: typeof date, rawDate: JSON.stringify(date) });
+    console.log('Received booking payload:', { slotid, hour, date, payment_id, email, location, dateType: typeof date, rawDate: JSON.stringify(date) });
 
-    if (!slotid || hour === undefined || !date) {
-      console.error('❌ Missing data:', { slotid, hour, date, payment_id, email });
-      return NextResponse.json({ error: 'Missing slotid, hour, or date' }, { status: 400 });
+    if (!slotid || hour === undefined || !date || !location) {
+      console.error('❌ Missing data:', { slotid, hour, date, payment_id, email, location });
+      return NextResponse.json({ error: 'Missing slotid, hour, date, or location' }, { status: 400 });
     }
 
     if (!Number.isInteger(hour) || hour < 0 || hour > 23) {
@@ -52,6 +54,15 @@ export async function POST(req) {
     slot.bookedHours.push({ hour, email, date: new Date(dateString), payment_id });
     slot.paymentid = payment_id || slot.paymentid;
     await slot.save();
+
+    // Trigger webhook for real-time updates
+    await triggerBookingWebhook({
+      slotid,
+      hour,
+      email,
+      date: dateString,
+      location,
+    });
 
     console.log(`✅ Slot ${slotid} booked at ${hour}:00–${hour + 1}:00 on ${dateString} by ${email} with payment_id: ${payment_id || 'none'}`);
     return NextResponse.json({ success: true, slot }, { status: 200 });
