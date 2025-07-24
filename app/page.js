@@ -87,7 +87,7 @@ export default function Home() {
             {
               icon: '/support.png',
               title: '24/7 Support',
-              desc: 'We've got your back around the clock.',
+              desc: 'We\'ve got your back around the clock.',
             },
           ].map((feature, i) => (
             <div
