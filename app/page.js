@@ -54,14 +54,14 @@ export default function Home() {
             ].map((src, i) => (
               <div
                 key={i}
-                className="rounded-xl overflow-hidden shadow-md h-32 sm:h-40 md:h-48 w-full aspect-square"
+                className="rounded-xl overflow-hidden shadow-md h-32 sm:h-40 md:h-48 w-full aspect-[4/3]"
               >
                 <Image
                   src={src}
                   alt={`place ${i + 1}`}
                   width={300}
-                  height={300}
-                  className="w-full h-full object-contain"
+                  height={225}
+                  className="w-full h-full object-cover object-center"
                 />
               </div>
             ))}
