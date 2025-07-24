@@ -51,15 +51,17 @@ export default function Home() {
               'parking_front.jpg',
               'parking_alley.jpg',
               'parking_lot.jpg',
-              
             ].map((src, i) => (
-              <div key={i} className="rounded-xl overflow-hidden shadow-md h-28 sm:h-36 md:h-40 w-full">
+              <div
+                key={i}
+                className="rounded-xl overflow-hidden shadow-md h-32 sm:h-40 md:h-48 w-full aspect-square"
+              >
                 <Image
                   src={src}
                   alt={`place ${i + 1}`}
-                  width={500}
-                  height={500}
-                  className="w-full h-full object-cover"
+                  width={300}
+                  height={300}
+                  className="w-full h-full object-contain"
                 />
               </div>
             ))}
