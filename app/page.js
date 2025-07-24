@@ -37,7 +37,7 @@ export default function Home() {
           {/* Right Image Grid */}
           <div className="grid grid-cols-2 grid-rows-3 gap-3 sm:gap-4 flex-1 w-full">
             {[
-              '/Images/place1.jpg',
+              'Gemini_Generated_Image_h3uk0sh3uk0sh3uk.jpg',
               '/Images/place2.jpg',
               '/Images/place3.jpg',
               '/Images/place4.jpg',
