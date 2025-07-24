@@ -57,8 +57,8 @@ export default function Home() {
                 <Image
                   src={src}
                   alt={`place ${i + 1}`}
-                  width={350}
-                  height={350}
+                  width={400}
+                  height={400}
                   className="w-full h-full object-cover"
                 />
               </div>
