@@ -49,7 +49,7 @@ export default function Home() {
             {[
               'Gemini_Generated_Image_h3uk0sh3uk0sh3uk.jpg',
               'city.jpg',
-              'parking.jpg',
+              'parking_alley.jpg',
               'water.jpg',
               
             ].map((src, i) => (
@@ -86,7 +86,7 @@ export default function Home() {
             {
               icon: '/scan.jpg',
               title: 'Scan Entry/Exit',
-              desc: 'Enter and exit using QR code or license plate scanning.',
+              desc: 'Enter and exit using QR code or license plate scanning. \ Feature coming soon!',
             },
             {
               icon: '/booking.jpg',
