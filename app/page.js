@@ -6,25 +6,7 @@ export default function Home() {
   return (
     <main className="bg-blue-50 min-h-screen py-12 px-4 sm:px-6 md:px-8">
       <div className="bg-white rounded-3xl shadow-lg max-w-7xl mx-auto px-6 sm:px-10 py-12 sm:py-16 relative overflow-hidden">
-        {/* Decorative Icons */}
-        <div className="absolute top-6 left-6 sm:top-8 sm:left-8 opacity-60">
-          <Image
-            src="/Images/left-icon.png"
-            alt="left deco"
-            width={60}
-            height={60}
-            className="sm:w-16 sm:h-16 md:w-20 md:h-20"
-          />
-        </div>
-        <div className="absolute top-6 right-6 sm:top-8 sm:right-8 opacity-60">
-          <Image
-            src="/Images/right-icon.png"
-            alt="right deco"
-            width={60}
-            height={60}
-            className="sm:w-16 sm:h-16 md:w-20 md:h-20"
-          />
-        </div>
+        
 
         {/* Hero Section */}
         <section className="flex flex-col md:flex-row justify-between items-center gap-10">
