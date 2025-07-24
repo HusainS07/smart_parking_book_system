@@ -6,13 +6,24 @@ export default function Home() {
   return (
     <main className="bg-blue-50 min-h-screen py-12 px-4 sm:px-6 md:px-8">
       <div className="bg-white rounded-3xl shadow-lg max-w-7xl mx-auto px-6 sm:px-10 py-12 sm:py-16 relative overflow-hidden">
-
         {/* Decorative Icons */}
-        <div className="absolute top-4 left-4 sm:top-5 sm:left-5 opacity-40">
-          <Image src="/Images/left-icon.png" alt="left deco" width={40} height={40} />
+        <div className="absolute top-6 left-6 sm:top-8 sm:left-8 opacity-60">
+          <Image
+            src="/Images/left-icon.png"
+            alt="left deco"
+            width={60}
+            height={60}
+            className="sm:w-16 sm:h-16 md:w-20 md:h-20"
+          />
         </div>
-        <div className="absolute top-4 right-4 sm:top-5 sm:right-5 opacity-40">
-          <Image src="/Images/right-icon.png" alt="right deco" width={40} height={40} />
+        <div className="absolute top-6 right-6 sm:top-8 sm:right-8 opacity-60">
+          <Image
+            src="/Images/right-icon.png"
+            alt="right deco"
+            width={60}
+            height={60}
+            className="sm:w-16 sm:h-16 md:w-20 md:h-20"
+          />
         </div>
 
         {/* Hero Section */}
@@ -26,12 +37,11 @@ export default function Home() {
               Your Trusted Guides to Unforgettable Experiences.
             </p>
 
-           <Link href="/book">
+            <Link href="/book">
               <button className="mt-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-6 rounded-full text-base sm:text-lg shadow-md hover:scale-105 transition-transform">
                 Book Now
               </button>
             </Link>
-
           </div>
 
           {/* Right Image Grid */}
@@ -75,31 +85,31 @@ export default function Home() {
               desc: 'Pay securely and instantly through our integrated platform.',
             },
             {
-              icon: '/scan.png',
+              icon: '/scan.jpg',
               title: 'Scan Entry/Exit',
               desc: 'Enter and exit using QR code or license plate scanning.',
             },
             {
-              icon: '/booking.png',
+              icon: '/booking.jpg',
               title: 'Easy Booking',
               desc: 'Reserve your parking spot from anywhere, anytime.',
             },
             {
-              icon: '/support.png',
+              icon: '/support.jpg',
               title: '24/7 Support',
-              desc: 'We\'ve got your back around the clock.',
+              desc: "We've got your back around the clock.",
             },
           ].map((feature, i) => (
             <div
               key={i}
-              className="bg-white rounded-2xl shadow-md p-6 flex flex-col items-center text-center"
+              className="bg-white rounded-2xl shadow-md p-6 sm:p-8 flex flex-col items-center text-center"
             >
               <Image
                 src={feature.icon}
                 alt={feature.title}
-                width={50}
-                height={50}
-                className="mb-4"
+                width={80}
+                height={80}
+                className="mb-4 sm:mb-6 w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24"
               />
               <h3 className="text-lg sm:text-xl font-semibold text-blue-700">{feature.title}</h3>
               <p className="text-sm sm:text-base text-gray-600 mt-2">{feature.desc}</p>
