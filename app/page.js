@@ -70,22 +70,22 @@ export default function Home() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
           {[
             {
-              icon: '/Images/payment.png',
+              icon: '/public/payment.png',
               title: 'Seamless Payment',
               desc: 'Pay securely and instantly through our integrated platform.',
             },
             {
-              icon: '/Images/scan.png',
+              icon: '/public/scan.png',
               title: 'Scan Entry/Exit',
               desc: 'Enter and exit using QR code or license plate scanning.',
             },
             {
-              icon: '/Images/booking.png',
+              icon: '/public/booking.png',
               title: 'Easy Booking',
               desc: 'Reserve your parking spot from anywhere, anytime.',
             },
             {
-              icon: '/Images/support.png',
+              icon: '/public/support.png',
               title: '24/7 Support',
               desc: 'We’ve got your back around the clock.',
             },
