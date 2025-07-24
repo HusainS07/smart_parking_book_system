@@ -48,9 +48,9 @@ export default function Home() {
           <div className="grid grid-cols-2 grid-rows-3 gap-3 sm:gap-4 flex-1 w-full">
             {[
               'Gemini_Generated_Image_h3uk0sh3uk0sh3uk.jpg',
-              'city.jpg',
+              'parking_front.jpg',
               'parking_alley.jpg',
-              'water.jpg',
+              'parking_lot.jpg',
               
             ].map((src, i) => (
               <div key={i} className="rounded-xl overflow-hidden shadow-md h-28 sm:h-36 md:h-40 w-full">
