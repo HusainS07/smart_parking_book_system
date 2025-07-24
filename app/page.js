@@ -48,11 +48,10 @@ export default function Home() {
           <div className="grid grid-cols-2 grid-rows-3 gap-3 sm:gap-4 flex-1 w-full">
             {[
               'Gemini_Generated_Image_h3uk0sh3uk0sh3uk.jpg',
-              '/Images/place2.jpg',
-              '/Images/place3.jpg',
-              '/Images/place4.jpg',
-              '/Images/place5.jpg',
-              '/Images/place6.jpg',
+              'city.jpg',
+              'parking.jpg',
+              'water.jpg',
+              
             ].map((src, i) => (
               <div key={i} className="rounded-xl overflow-hidden shadow-md h-28 sm:h-36 md:h-40 w-full">
                 <Image
