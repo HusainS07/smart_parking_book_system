@@ -45,7 +45,7 @@ export default function Home() {
           </div>
 
           {/* Right Image Grid */}
-          <div className="grid grid-cols-2 grid-rows-3 gap-3 sm:gap-4 flex-1 w-full">
+          <div className="grid grid-cols-2 grid-rows-2 gap-3 sm:gap-4 flex-1 w-full">
             {[
               'Gemini_Generated_Image_h3uk0sh3uk0sh3uk.jpg',
               'parking_front.jpg',
@@ -57,8 +57,8 @@ export default function Home() {
                 <Image
                   src={src}
                   alt={`place ${i + 1}`}
-                  width={300}
-                  height={300}
+                  width={350}
+                  height={350}
                   className="w-full h-full object-cover"
                 />
               </div>
