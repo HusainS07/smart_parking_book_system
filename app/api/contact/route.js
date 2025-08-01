@@ -101,14 +101,14 @@ async function getChatCompletion(prompt) {
           {
             role: "system",
             content:
-              "You are a helpful customer service assistant for a Smart Parking System. Your goal is to provide a clear, concise, and natural response to the user's question, rephrasing the provided FAQ answer to match the user's query style and intent. Do not mention that the response is based on an FAQ. Keep the tone friendly and professional.",
+              "You are a helpful customer service assistant for a Smart Parking System. Your goal is to provide a clear, concise, and natural response to the user's question, rephrasing the provided FAQ answer to match the user's query style and intent. Do not mention that the response is based on an FAQ. Keep the tone friendly and professional. Only 2-3 lines are needed for the response.",
           },
           {
             role: "user",
             content: prompt,
           },
         ],
-        max_tokens: 250,
+        max_tokens: 350,
         temperature: 0.7,
         top_p: 0.9,
       }),
