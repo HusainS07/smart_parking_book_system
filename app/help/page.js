@@ -122,7 +122,7 @@ export default function Help() {
       {/* Contact Form */}
       <div className="max-w-lg mx-auto bg-white p-8 rounded-xl shadow-lg">
         <h2 className="text-3xl font-bold text-center text-blue-800 mb-6">
-          Ask a Question
+          Ask a Question for contact 
         </h2>
 
         {success && (
