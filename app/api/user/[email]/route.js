@@ -33,7 +33,7 @@ export async function GET(request, { params }) {
 }
 
 export async function PUT(request, { params }) {
-  console.log('=== PUT /api/user/[email] Debug Info ===');
+  
 
   try {
     await dbConnect();
