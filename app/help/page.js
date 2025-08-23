@@ -24,7 +24,7 @@ export default function Help() {
     {
       question: "What is the Smart Parking System?",
       answer:
-        "Our Smart Parking System helps manage and optimize parking spaces efficiently using real-time tracking and automation.",
+        "Our Smart Parking System helps manage and optimize parking spa ces efficiently using real-time tracking and automation.",
     },
     {
       question: "How do I reserve a parking spot?",

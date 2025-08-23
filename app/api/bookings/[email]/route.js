@@ -3,75 +3,53 @@ import ParkingSlot from '@/models/parkingslots';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { ratelimit } from "@/lib/ratelimiter";
 
 export async function GET(request, { params }) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
-      console.log('No session found');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const email = decodeURIComponent(params.email).toLowerCase(); // Normalize email to lowercase
-    if (email !== session.user.email.toLowerCase()) {
-      console.log('Email mismatch:', { requestEmail: email, sessionEmail: session.user.email });
-      return NextResponse.json({ error: 'Forbidden: Email does not match authenticated user' }, { status: 403 });
+    // ✅ Rate-limit per authenticated user
+    const allowed = await ratelimit({
+      key: `user:${session.user.id}`,
+      limit: 10,               // e.g. 10 requests
+      window_in_seconds: 60,   // per 1 minute
+    });
+
+    if (!allowed) {
+      return NextResponse.json({ error: "Too many booking requests. Try again later." }, { status: 429 });
     }
 
-    console.log('Fetching bookings for user:', { email, sessionUser: session.user });
+    const email = decodeURIComponent(params.email).toLowerCase();
+    if (email !== session.user.email.toLowerCase()) {
+      return NextResponse.json({ error: 'Forbidden: Email mismatch' }, { status: 403 });
+    }
 
     await dbConnect();
-
-    // Get current date and hour in IST
+    // 🔽 your booking fetch logic stays unchanged...
     const now = new Date();
-    const currentDate = now.toLocaleString('en-CA', { timeZone: 'Asia/Kolkata' }).split('T')[0]; // YYYY-MM-DD
+    const currentDate = now.toLocaleString('en-CA', { timeZone: 'Asia/Kolkata' }).split('T')[0];
     const currentHour = parseInt(now.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour: 'numeric', hour12: false }));
-    console.log('Current IST:', { date: currentDate, hour: currentHour });
 
     const slots = await ParkingSlot.find({
-      'bookedHours.email': { $regex: `^${email}$`, $options: 'i' }, // Case-insensitive email match
+      'bookedHours.email': { $regex: `^${email}$`, $options: 'i' },
     }).lean();
 
-    console.log('Raw Slots Found:', slots.length, JSON.stringify(slots, null, 2));
-
     const bookings = slots
-      .flatMap((slot) => {
-        if (!slot.bookedHours || !Array.isArray(slot.bookedHours)) {
-          console.log('No bookedHours in slot:', slot.slotid);
-          return [];
-        }
-
-        return slot.bookedHours
+      .flatMap((slot) =>
+        (slot.bookedHours || [])
           .filter((bh) => {
-            // Validate bookedHours entry
-            if (!bh.email || !bh.date || isNaN(bh.hour)) {
-              console.log('Invalid bookedHours entry in slot', slot.slotid, ':', bh);
-              return false;
-            }
-
-            // Convert booked date to IST
-            const bookedDate = new Date(bh.date);
-            if (isNaN(bookedDate.getTime())) {
-              console.log('Invalid date in bookedHours:', bh);
-              return false;
-            }
-            const bookedDateIST = bookedDate.toLocaleString('en-CA', { timeZone: 'Asia/Kolkata' }).split('T')[0];
+            if (!bh.email || !bh.date || isNaN(bh.hour)) return false;
+            const bookedDateIST = new Date(bh.date).toLocaleString('en-CA', { timeZone: 'Asia/Kolkata' }).split('T')[0];
             const bookedHour = parseInt(bh.hour);
-
-            // Check if booking is today or in the future
-            const isFutureOrToday =
-              bookedDateIST > currentDate ||
-              (bookedDateIST === currentDate && bookedHour >= currentHour);
-
-            console.log('Booking Check:', {
-              slotid: slot.slotid,
-              email: bh.email,
-              bookedDateIST,
-              bookedHour,
-              isFutureOrToday,
-            });
-
-            return bh.email.toLowerCase() === email && isFutureOrToday;
+            return (
+              bh.email.toLowerCase() === email &&
+              (bookedDateIST > currentDate ||
+                (bookedDateIST === currentDate && bookedHour >= currentHour))
+            );
           })
           .map((bh) => ({
             slotid: slot.slotid,
@@ -79,10 +57,8 @@ export async function GET(request, { params }) {
             amount: slot.amount,
             date: new Date(bh.date).toLocaleString('en-CA', { timeZone: 'Asia/Kolkata' }).split('T')[0],
             time: `${bh.hour}:00–${bh.hour + 1}:00`,
-          }));
-      });
-
-    console.log('Filtered Bookings:', bookings.length, JSON.stringify(bookings, null, 2));
+          }))
+      );
 
     return NextResponse.json(bookings, { status: 200 });
   } catch (err) {

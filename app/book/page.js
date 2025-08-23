@@ -39,7 +39,7 @@ export async function generateMetadata({ searchParams }) {
   };
 }
 
-// Optional: Pre-render static paths for locations
+// Pre-render static paths for locations
 export async function generateStaticParams() {
   return [
     { location: 'mumbai' },
