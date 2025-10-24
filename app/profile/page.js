@@ -552,7 +552,7 @@ export default function ProfilePage() {
                   <div className="space-y-2 text-sm">
                     <p className="flex justify-between">
                       <span className="font-medium text-gray-700">Slot:</span>
-                      <span>{b.slotid || 'N/A'}</span>
+                      <span>{b.slotId || 'N/A'}</span>
                     </p>
                     <p className="flex justify-between">
                       <span className="font-medium text-gray-700">Location:</span>
