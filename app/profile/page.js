@@ -9,9 +9,8 @@ export default function ProfilePage() {
   const { data: session, status } = useSession();
   const [activeTab, setActiveTab] = useState('bookings');
   const [bookings, setBookings] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [bookingsLoading, setBookingsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Error handler
   const handleError = useCallback((err, context) => {
@@ -23,22 +22,26 @@ export default function ProfilePage() {
   // Clear error after timeout
   useEffect(() => {
     if (error) {
-      const timer = setTimeout(() => setError(null), 5000); // Reduced timeout to 5s for faster dismissal
+      const timer = setTimeout(() => setError(null), 5000);
       return () => clearTimeout(timer);
     }
   }, [error]);
 
   // Fetch bookings with retry logic
   useEffect(() => {
-    if (!session?.user?.email || activeTab !== 'bookings') return;
+    if (!session?.user?.email || activeTab !== 'bookings') {
+      setBookings([]);
+      return;
+    }
 
     let retryCount = 0;
     const maxRetries = 3;
     const retryDelay = 2000; // 2 seconds
 
     const fetchBookings = async () => {
-      setBookingsLoading(true);
+      setIsLoading(true);
       try {
+        console.log('Fetching bookings for:', session.user.email);
         const res = await axios.get(`/api/bookings/${encodeURIComponent(session.user.email)}`);
         setBookings(res.data);
         setError(null);
@@ -51,7 +54,7 @@ export default function ProfilePage() {
         handleError(err, 'Failed to load bookings');
         setBookings([]);
       } finally {
-        setBookingsLoading(false);
+        setIsLoading(false);
       }
     };
 
@@ -60,7 +63,7 @@ export default function ProfilePage() {
 
   const handleLogout = () => signOut();
 
-  if (status === 'loading' || loading) {
+  if (status === 'loading') {
     return (
       <div className="flex justify-center items-center min-h-screen bg-gray-50">
         <div className="text-center">
@@ -129,7 +132,7 @@ export default function ProfilePage() {
 
       {/* Main Content */}
       <div className="max-w-4xl mx-auto">
-        {bookingsLoading ? (
+        {isLoading ? (
           <div className="text-center py-8 bg-white rounded-lg shadow-sm">
             <div className="relative mx-auto h-8 w-8">
               <div className="animate-spin rounded-full h-8 w-8 border-4 border-gray-200"></div>
