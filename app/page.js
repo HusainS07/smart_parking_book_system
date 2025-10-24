@@ -7,7 +7,6 @@ export default function Home() {
     <main className="bg-blue-50 min-h-screen py-12 px-4 sm:px-6 md:px-8">
       <div className="bg-white rounded-3xl shadow-lg max-w-7xl mx-auto px-6 sm:px-10 py-12 sm:py-16 relative overflow-hidden">
         
-
         {/* Hero Section */}
         <section className="flex flex-col md:flex-row justify-between items-center gap-10">
           {/* Left Text */}
@@ -29,10 +28,10 @@ export default function Home() {
           {/* Right Image Grid */}
           <div className="grid grid-cols-2 grid-rows-2 gap-3 sm:gap-4 flex-1 w-full">
             {[
-              'Gemini_Generated_Image_h3uk0sh3uk0sh3uk.jpg',
-              'parking_front.jpg',
-              'parking_alley.jpg',
-              'parking_lot.jpg',
+              '/Gemini_Generated_Image_h3uk0sh3uk0sh3uk.jpg',
+              '/parking_front.jpg',
+              '/parking_alley.jpg',
+              '/parking_lot.jpg',
             ].map((src, i) => (
               <div
                 key={i}
@@ -70,7 +69,7 @@ export default function Home() {
             {
               icon: '/scan.jpg',
               title: 'Scan Entry/Exit',
-              desc: 'Enter and exit using QR code or license plate scanning. \ Feature coming soon!',
+              desc: 'Enter and exit using QR code or license plate scanning. Feature coming soon!',
             },
             {
               icon: '/booking.jpg',
