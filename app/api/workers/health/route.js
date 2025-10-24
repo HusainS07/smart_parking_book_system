@@ -2,13 +2,15 @@ import { NextResponse } from 'next/server';
 import getRedisClient from '@/lib/redis';
 
 // Add response headers for Vercel
-export const runtime = 'edge';
+import { NextResponse } from 'next/server';
+import getRedisClient from '@/lib/redis-edge';
+
 export const dynamic = 'force-dynamic';
 
-export const config = {
-  runtime: 'edge',
-  regions: ['iad1'], // US East (N. Virginia)
-};
+export async function GET() {
+export const dynamic = 'force-dynamic';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
