@@ -42,6 +42,14 @@ export async function GET(request, { params }) {
           })), null, 2)
         );
 
+        // Debug: Log slot details
+        console.log('Slot details:', {
+          id: slot._id,
+          slotid: slot.slotid,
+          location: slot.location,
+          amount: slot.amount
+        });
+
         // Filter bookings for target email
         const matchingBookings = slot.bookedHours
           .filter(bh => {
@@ -55,7 +63,7 @@ export async function GET(request, { params }) {
             return isMatch;
           })
           .map(bh => ({
-            slotId: slot.slotid,
+            slotId: slot.slotid || `S_${slot.location}_${slot._id.toString().substr(-6)}`,
             location: slot.location,
             amount: slot.amount,
             date: new Date(bh.date).toLocaleDateString('en-US', {
