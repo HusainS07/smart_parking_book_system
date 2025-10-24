@@ -1,15 +1,6 @@
 import { NextResponse } from 'next/server';
 import getRedisClient from '@/lib/redis';
 
-// Add response headers for Vercel
-import { NextResponse } from 'next/server';
-import getRedisClient from '@/lib/redis-edge';
-
-export const dynamic = 'force-dynamic';
-
-export async function GET() {
-export const dynamic = 'force-dynamic';
-
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
@@ -24,11 +15,13 @@ export async function GET() {
         throw new Error('Redis client not initialized');
       }
       
-      await redis.ping();
+      // For Upstash Redis, we'll just check if we can perform a basic operation
+      await redis.set('health:check', 'ok');
+      await redis.del('health:check');
       
       const [queueLength, activeOrders] = await Promise.all([
-        redis.llen('payment:queue').catch(() => 0),
-        redis.scard('payment:active_orders').catch(() => 0)
+        redis.llen('payment:queue'),
+        redis.scard('payment:active_orders')
       ]);
       
       return { queueLength, activeOrders };
@@ -36,18 +29,17 @@ export async function GET() {
 
     // Race between Redis operations and timeout
     const { queueLength, activeOrders } = await Promise.race([
-      checkRedis(),
+      checkHealth(),
       timeoutPromise
     ]);
 
     return NextResponse.json({
       status: 'healthy',
-      redis: 'connected',
+      timestamp: new Date().toISOString(),
       queue: {
-        pending: queueLength,
-        processing: activeOrders
-      },
-      timestamp: new Date().toISOString()
+        length: queueLength,
+        activeOrders: activeOrders
+      }
     });
   } catch (error) {
     console.error('Health check failed:', error);
@@ -55,6 +47,6 @@ export async function GET() {
       status: 'unhealthy',
       error: error.message,
       timestamp: new Date().toISOString()
-    }, { status: 500 });
+    }, { status: 503 });
   }
 }
