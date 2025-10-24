@@ -5,7 +5,7 @@ import { getServerSession } from 'next-auth';
 
 // Metadata for SEO
 export async function generateMetadata({ searchParams }) {
-  const location = searchParams.location || 'mumbai';
+  const location = await searchParams.location || 'mumbai';
   const capitalizedLocation = location.charAt(0).toUpperCase() + location.slice(1);
 
   return {
@@ -52,7 +52,7 @@ export async function generateStaticParams() {
 export const revalidate = 3600; // Revalidate every hour
 
 export default async function BookPage({ searchParams }) {
-  const location = searchParams.location || 'mumbai';
+  const location = await searchParams.location || 'mumbai';
   const session = await getServerSession();
   let slots = [];
   let currentHour = parseInt(new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour: 'numeric', hour12: false }));

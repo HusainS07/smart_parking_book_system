@@ -17,6 +17,7 @@
     "cashfree-pg": "^5.0.8",
     "cloudinary": "^2.7.0",
     "framer-motion": "^12.18.1",
+    "ioredis": "^5.8.2",
     "mongoose": "^8.13.2",
     "next": "15.3.0",
     "next-auth": "^4.24.11",
