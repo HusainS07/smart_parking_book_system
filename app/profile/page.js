@@ -390,7 +390,7 @@ export default function ProfilePage() {
           <div className="flex flex-col sm:flex-row items-center gap-6 bg-white rounded-lg shadow-sm p-6 border border-gray-100">
             <div className="relative">
               <Image
-                src={imageUrl || formData.image || user.image || '/default-profile.jpg'}
+                src={imageUrl || formData.image || user.image || '/user.jpg'}
                 alt="Profile picture"
                 width={80}
                 height={80}
