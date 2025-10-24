@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "SMART PARKING BOOKER",
+  title: "SMART PARKING BOOKER SYSTEM",
   description: "Book your parking smartly",
 };
 export default function RootLayout({ children }) {
