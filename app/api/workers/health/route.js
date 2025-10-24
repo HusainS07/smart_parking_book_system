@@ -1,17 +1,43 @@
 import { NextResponse } from 'next/server';
 import getRedisClient from '@/lib/redis';
 
+// Add response headers for Vercel
+export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
+
+export const config = {
+  runtime: 'edge',
+  regions: ['iad1'], // US East (N. Virginia)
+};
+
 export async function GET() {
   try {
-    const redis = getRedisClient();
-    
-    // Check Redis connection
-    await redis.ping();
-    
-    // Get queue statistics
-    const queueLength = await redis.llen('payment:queue');
-    const activeOrders = await redis.scard('payment:active_orders');
-    
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Operation timeout')), 5000);
+    });
+
+    const checkHealth = async () => {
+      const redis = getRedisClient();
+      if (!redis) {
+        throw new Error('Redis client not initialized');
+      }
+      
+      await redis.ping();
+      
+      const [queueLength, activeOrders] = await Promise.all([
+        redis.llen('payment:queue').catch(() => 0),
+        redis.scard('payment:active_orders').catch(() => 0)
+      ]);
+      
+      return { queueLength, activeOrders };
+    };
+
+    // Race between Redis operations and timeout
+    const { queueLength, activeOrders } = await Promise.race([
+      checkRedis(),
+      timeoutPromise
+    ]);
+
     return NextResponse.json({
       status: 'healthy',
       redis: 'connected',
