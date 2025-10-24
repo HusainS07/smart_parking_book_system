@@ -3,7 +3,6 @@ import ParkingSlot from '@/models/parkingslots';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { ratelimit } from "@/lib/ratelimiter";
 
 export async function GET(request, { params }) {
   try {
@@ -12,53 +11,88 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // ✅ Rate-limit per authenticated user
-    const allowed = await ratelimit({
-      key: `user:${session.user.id}`,
-      limit: 10,               // e.g. 10 requests
-      window_in_seconds: 60,   // per 1 minute
-    });
+    // Get and normalize the email
+    const emailParam = decodeURIComponent(params.email).toLowerCase().trim();
+    const sessionEmail = session.user.email.toLowerCase().trim();
 
-    if (!allowed) {
-      return NextResponse.json({ error: "Too many booking requests. Try again later." }, { status: 429 });
-    }
-
-    const email = decodeURIComponent(params.email).toLowerCase();
-    if (email !== session.user.email.toLowerCase()) {
+    // Validate email match
+    if (emailParam !== sessionEmail) {
+      console.log('❌ Email mismatch:', { emailParam, sessionEmail });
       return NextResponse.json({ error: 'Forbidden: Email mismatch' }, { status: 403 });
     }
 
     await dbConnect();
-    // 🔽 your booking fetch logic stays unchanged...
-    const now = new Date();
-    const currentDate = now.toLocaleString('en-CA', { timeZone: 'Asia/Kolkata' }).split('T')[0];
-    const currentHour = parseInt(now.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour: 'numeric', hour12: false }));
+    console.log('✅ Database connected, looking for bookings for:', emailParam);
 
-    const slots = await ParkingSlot.find({
-      'bookedHours.email': { $regex: `^${email}$`, $options: 'i' },
-    }).lean();
+    // Get all slots first
+    const allSlots = await ParkingSlot.find({}).lean();
+    console.log(`📊 Found ${allSlots.length} total slots in database`);
 
-    const bookings = slots
-      .flatMap((slot) =>
-        (slot.bookedHours || [])
-          .filter((bh) => {
-            if (!bh.email || !bh.date || isNaN(bh.hour)) return false;
-            const bookedDateIST = new Date(bh.date).toLocaleString('en-CA', { timeZone: 'Asia/Kolkata' }).split('T')[0];
-            const bookedHour = parseInt(bh.hour);
-            return (
-              bh.email.toLowerCase() === email &&
-              (bookedDateIST > currentDate ||
-                (bookedDateIST === currentDate && bookedHour >= currentHour))
-            );
+    // Process each slot for the target email
+    const bookings = [];
+    allSlots.forEach(slot => {
+      // Log all bookings in this slot
+      if (slot.bookedHours && slot.bookedHours.length > 0) {
+        console.log(`\n🎫 Slot ${slot.slotid} has bookings:`, 
+          JSON.stringify(slot.bookedHours.map(b => ({
+            email: b.email,
+            date: b.date,
+            hour: b.hour,
+            payment_id: b.payment_id
+          })), null, 2)
+        );
+
+        // Filter bookings for target email
+        const matchingBookings = slot.bookedHours
+          .filter(bh => {
+            const isMatch = bh.email && bh.email.toLowerCase().trim() === emailParam;
+            console.log(`Checking booking:`, {
+              storedEmail: bh.email,
+              matches: isMatch,
+              date: bh.date,
+              hour: bh.hour
+            });
+            return isMatch;
           })
-          .map((bh) => ({
-            slotid: slot.slotid,
+          .map(bh => ({
+            slotId: slot.slotid,
             location: slot.location,
             amount: slot.amount,
-            date: new Date(bh.date).toLocaleString('en-CA', { timeZone: 'Asia/Kolkata' }).split('T')[0],
+            date: new Date(bh.date).toLocaleDateString('en-US', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            }),
             time: `${bh.hour}:00–${bh.hour + 1}:00`,
-          }))
-      );
+            hour: bh.hour,
+            paymentId: bh.payment_id,
+            bookingId: bh._id,
+            isApproved: slot.isApproved
+          }));
+
+        if (matchingBookings.length > 0) {
+          console.log(`✅ Found ${matchingBookings.length} matching bookings in slot ${slot.slotid}`);
+          bookings.push(...matchingBookings);
+        }
+      }
+    });
+
+    // Log final results
+    if (bookings.length === 0) {
+      console.log('⚠️ No bookings found for email:', emailParam);
+    } else {
+      console.log('🎉 Final results:', {
+        totalBookings: bookings.length,
+        bookings: bookings.map(b => ({
+          slotId: b.slotId,
+          location: b.location,
+          date: b.date,
+          time: b.time,
+          paymentId: b.paymentId
+        }))
+      });
+    }
 
     return NextResponse.json(bookings, { status: 200 });
   } catch (err) {

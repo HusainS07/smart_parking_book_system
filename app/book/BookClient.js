@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -319,180 +318,272 @@ export default function BookClient({ initialSlots, initialWallet, session, locat
   }, [selectedLocation, location, router]);
 
   return (
-    <>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-indigo-50 to-blue-50">
+      {/* Toast Notification */}
       {toast.visible && (
         <div
-          className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg text-white text-sm font-medium animate-slide-in-out ${
-            toast.type === 'success' ? 'bg-green-600' : toast.type === 'info' ? 'bg-blue-600' : 'bg-red-600'
+          className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg text-white text-sm font-semibold animate-slide-in-out ${
+            toast.type === 'success'
+              ? 'bg-green-600'
+              : toast.type === 'info'
+              ? 'bg-blue-600'
+              : 'bg-red-600'
           }`}
+          role="alert"
+          aria-live="assertive"
         >
-          {toast.message}
+          <div className="flex items-center gap-2">
+            {toast.type === 'success' && (
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+            )}
+            {toast.type === 'error' && (
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+            )}
+            <span>{toast.message}</span>
+          </div>
         </div>
       )}
 
+      {/* Error Alert */}
       {error && (
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-8 rounded-lg">
-          <p>{error}</p>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+          <div className="bg-red-50 border-l-4 border-red-600 rounded-lg p-4 shadow-md" role="alert" aria-live="assertive">
+            <div className="flex items-center gap-3">
+              <svg className="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              <p className="text-red-800 font-medium">{error}</p>
+            </div>
+          </div>
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 mb-10">
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 0111.314 0z" />
-          </svg>
-          <select
-            value={selectedLocation}
-            onChange={(e) => setSelectedLocation(e.target.value)}
-            className="w-full sm:w-64 bg-white border border-gray-300 rounded-lg px-4 py-2 text-gray-700 focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition duration-200"
-          >
-            <option value="mumbai">Mumbai</option>
-            <option value="delhi">Delhi</option>
-            <option value="bangalore">Bangalore</option>
-            <option value="pune">Pune</option>
-          </select>
-        </div>
+      {/* Header Section */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            {/* Location Selector */}
+            <div className="flex-1">
+              <label htmlFor="location-select" className="block text-sm font-semibold text-gray-700 mb-2">
+                Select Location
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+                <select
+                  id="location-select"
+                  value={selectedLocation}
+                  onChange={(e) => setSelectedLocation(e.target.value)}
+                  className="w-full pl-10 pr-10 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 font-medium focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150 appearance-none cursor-pointer hover:border-gray-300"
+                  aria-label="Select parking location"
+                >
+                  <option value="mumbai">Mumbai</option>
+                  <option value="delhi">Delhi</option>
+                  <option value="bangalore">Bangalore</option>
+                  <option value="pune">Pune</option>
+                </select>
+                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                  <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
+            </div>
 
-        <div className="flex items-center gap-2 text-gray-700 font-medium">
-          <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-          </svg>
-          Wallet Balance: <span className="text-green-600 font-semibold">₹{wallet}</span>
+            {/* Wallet Balance */}
+            <div className="lg:ml-6">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Wallet Balance</label>
+              <div className="bg-gradient-to-r from-green-500 to-teal-500 rounded-lg px-4 py-2.5 shadow-sm">
+                <div className="flex items-center gap-2">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                  </svg>
+                  <span className="text-lg font-semibold text-white">₹{wallet}</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {loading ? (
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-indigo-600"></div>
-        </div>
-      ) : slots.length === 0 ? (
-        <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-lg text-center">
-          No slots found in {selectedLocation}. Try another location or contact support.
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {slots.map((slot) => {
-            const today = formatDate(new Date());
-            const bookedHoursToday = (Array.isArray(slot.bookedHours) ? slot.bookedHours : []).filter(
-              (bh) =>
-                bh.date &&
-                (bh.date.toISOString ? bh.date.toISOString().split('T')[0] === today : formatDate(new Date(bh.date)) === today)
-            ).map((bh) => bh.hour);
-            console.log(`Client: Slot ${slot.slotid} bookedHoursToday:`, bookedHoursToday, `currentHour: ${currentHourState}`);
-            return (
-              <div
-                key={slot._id}
-                className="bg-white p-6 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 animate-fade-in"
-              >
-                <h2 className="text-xl font-semibold text-indigo-800 mb-3 flex items-center gap-2">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                  </svg>
-                  Slot: {slot.slotid}
-                </h2>
-                <p className="text-gray-600 mb-2 flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  </svg>
-                  Lot: {slot.lotId?.lotName || 'Unknown'}
-                </p>
-                <p className="text-gray-600 mb-2 flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                  </svg>
-                  Address: {slot.lotId?.address || 'Unknown'}
-                </p>
-                <p className="text-gray-600 mb-2 flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Amount: ₹{slot.amount}
-                </p>
-                <p className="text-gray-600 mb-4 flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  Created: {new Date(slot.createdat).toLocaleDateString()}
-                </p>
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Loading State */}
+        {loading ? (
+          <div className="flex flex-col justify-center items-center h-64">
+            <div className="relative">
+              <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-200"></div>
+              <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-indigo-600 absolute top-0 left-0"></div>
+            </div>
+            <p className="mt-4 text-gray-600 font-medium">Loading available slots...</p>
+          </div>
+        ) : slots.length === 0 ? (
+          <div className="bg-yellow-50 border-l-4 border-yellow-600 rounded-lg p-5 text-center shadow-sm" role="alert">
+            <svg className="w-10 h-10 text-yellow-600 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <p className="text-yellow-800 font-semibold text-lg">No slots available in {selectedLocation}</p>
+            <p className="text-yellow-700 mt-1">Try selecting another location or contact support.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {slots.map((slot) => {
+              const today = formatDate(new Date());
+              const bookedHoursToday = (Array.isArray(slot.bookedHours) ? slot.bookedHours : []).filter(
+                (bh) =>
+                  bh.date &&
+                  (bh.date.toISOString ? bh.date.toISOString().split('T')[0] === today : formatDate(new Date(bh.date)) === today)
+              ).map((bh) => bh.hour);
+              console.log(`Client: Slot ${slot.slotid} bookedHoursToday:`, bookedHoursToday, `currentHour: ${currentHourState}`);
 
-                {selectedSlot === slot._id ? (
-                  <div className="mt-6 space-y-4">
-                    <select
-                      className="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-2 text-gray-700 focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition duration-200"
-                      value={selectedHour ?? ''}
-                      onChange={(e) => setSelectedHour(Number(e.target.value))}
-                    >
-                      <option value="">🕓 Select Hour (0–23)</option>
-                      {hourOptions.map((h) => {
-                        const isDisabled = bookedHoursToday.includes(h) || h < currentHourState;
-                        console.log(`Client: Hour ${h} disabled: ${isDisabled}, booked: ${bookedHoursToday.includes(h)}, past: ${h < currentHourState}`);
-                        return (
-                          <option
-                            key={h}
-                            value={h}
-                            disabled={isDisabled}
-                            className={isDisabled ? 'text-gray-400' : 'text-gray-700'}
-                          >
-                            {`${h}:00–${h + 1}:00`}
-                            {isDisabled ? (bookedHoursToday.includes(h) ? ' (Booked)' : ' (Expired)') : ''}
-                          </option>
-                        );
-                      })}
-                    </select>
-
-                    <button
-                      className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 rounded-lg transition duration-200 flex items-center justify-center gap-2"
-                      onClick={() => handleWalletBooking(slot)}
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                      </svg>
-                      Pay with Wallet
-                    </button>
-
-                    <button
-                      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 rounded-lg transition duration-200 flex items-center justify-center gap-2"
-                      onClick={() => handleUPIBooking(slot)}
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                      </svg>
-                      Pay with UPI
-                    </button>
-
-                    <button
-                      className="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2 rounded-lg transition duration-200 flex items-center justify-center gap-2"
-                      onClick={() => {
-                        setSelectedSlot(null);
-                        setSelectedHour(null);
-                      }}
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                      Cancel
-                    </button>
+              return (
+                <div
+                  key={slot._id}
+                  className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-100 overflow-hidden animate-fade-in"
+                >
+                  {/* Card Header */}
+                  <div className="bg-gradient-to-r from-indigo-600 to-blue-600 px-5 py-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-white">Slot {slot.slotid}</h3>
+                      <div className="bg-white bg-opacity-20 px-3 py-1 rounded-full">
+                        <span className="text-white font-semibold text-base">₹{slot.amount}</span>
+                      </div>
+                    </div>
                   </div>
-                ) : (
-                  <button
-                    className="mt-6 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 rounded-lg transition duration-200 flex items-center justify-center gap-2"
-                    onClick={() => {
-                      setSelectedSlot(slot._id);
-                      setSelectedHour(null);
-                    }}
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    Book Now
-                  </button>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
+
+                  {/* Card Body */}
+                  <div className="p-5">
+                    <div className="space-y-3 mb-4">
+                      <div className="flex items-start gap-2 text-gray-700">
+                        <svg className="w-4 h-4 text-indigo-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        </svg>
+                        <div>
+                          <p className="text-xs text-gray-500 uppercase font-medium">Parking Lot</p>
+                          <p className="font-medium text-sm">{slot.lotId?.lotName || 'Unknown'}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-2 text-gray-700">
+                        <svg className="w-4 h-4 text-indigo-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        </svg>
+                        <div>
+                          <p className="text-xs text-gray-500 uppercase font-medium">Address</p>
+                          <p className="font-medium text-sm">{slot.lotId?.address || 'Unknown'}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-gray-700">
+                        <svg className="w-4 h-4 text-indigo-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <div>
+                          <p className="text-xs text-gray-500 uppercase font-medium">Created</p>
+                          <p className="font-medium text-sm">{new Date(slot.createdat).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Booking Interface */}
+                    {selectedSlot === slot._id ? (
+                      <div className="space-y-3 pt-4 border-t border-gray-100">
+                        <div className="relative">
+                          <label htmlFor={`time-slot-${slot._id}`} className="block text-sm font-semibold text-gray-700 mb-2">
+                            Select Time Slot
+                          </label>
+                          <select
+                            id={`time-slot-${slot._id}`}
+                            className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-700 font-medium focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150 appearance-none cursor-pointer"
+                            value={selectedHour ?? ''}
+                            onChange={(e) => setSelectedHour(Number(e.target.value))}
+                            aria-label="Select booking hour"
+                          >
+                            <option value="">🕓 Select Time</option>
+                            {hourOptions.map((h) => {
+                              const isDisabled = bookedHoursToday.includes(h) || h < currentHourState;
+                              console.log(`Client: Hour ${h} disabled: ${isDisabled}, booked: ${bookedHoursToday.includes(h)}, past: ${h < currentHourState}`);
+                              return (
+                                <option
+                                  key={h}
+                                  value={h}
+                                  disabled={isDisabled}
+                                  className={isDisabled ? 'text-gray-400' : 'text-gray-700'}
+                                >
+                                  {`${h}:00–${h + 1}:00`}
+                                  {isDisabled ? (bookedHoursToday.includes(h) ? ' (Booked)' : ' (Expired)') : ''}
+                                </option>
+                              );
+                            })}
+                          </select>
+                        </div>
+
+                        <button
+                          className="w-full bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white font-semibold py-2.5 rounded-lg transition-all duration-150 flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
+                          onClick={() => handleWalletBooking(slot)}
+                          aria-label={`Book slot ${slot.slotid} with wallet`}
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                          </svg>
+                          Pay with Wallet
+                        </button>
+
+                        <button
+                          className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-semibold py-2.5 rounded-lg transition-all duration-150 flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
+                          onClick={() => handleUPIBooking(slot)}
+                          aria-label={`Book slot ${slot.slotid} with UPI`}
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                          </svg>
+                          Pay with UPI
+                        </button>
+
+                        <button
+                          className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2.5 rounded-lg transition-all duration-150 flex items-center justify-center gap-2"
+                          onClick={() => {
+                            setSelectedSlot(null);
+                            setSelectedHour(null);
+                          }}
+                          aria-label="Cancel booking"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-semibold py-2.5 rounded-lg transition-all duration-150 flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
+                        onClick={() => {
+                          setSelectedSlot(slot._id);
+                          setSelectedHour(null);
+                        }}
+                        aria-label={`Book slot ${slot.slotid}`}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        Book This Slot
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       <style jsx>{`
         @keyframes fadeIn {
@@ -512,6 +603,6 @@ export default function BookClient({ initialSlots, initialWallet, session, locat
           animation: slideInOut 3s ease-in-out;
         }
       `}</style>
-    </>
+    </div>
   );
 }
