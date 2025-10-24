@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useSession, signOut } from 'next-auth/react';
+import { useSession, signOut, signIn } from 'next-auth/react';
 import axios from 'axios';
 import Image from 'next/image';
 
@@ -80,13 +80,13 @@ export default function ProfilePage() {
         <div className="text-center bg-white rounded-lg shadow-sm p-6">
           <h1 className="text-2xl font-semibold text-gray-800 mb-3">Authentication Required</h1>
           <p className="text-gray-600">Please sign in to view your profile.</p>
-          <a
-            href="/api/auth/signin"
+          <button
+            onClick={() => signIn()}
             className="mt-4 inline-block bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-700 transition duration-150"
             aria-label="Sign in to view profile"
           >
             Sign In
-          </a>
+          </button>
         </div>
       </div>
     );
