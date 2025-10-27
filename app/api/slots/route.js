@@ -1,3 +1,4 @@
+// app/api/slots/route.js
 import dbConnect from '@/lib/dbConnect';
 import ParkingSlot from '@/models/parkingslots';
 import ParkingLot from '@/models/ParkingLot';

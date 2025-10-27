@@ -17,6 +17,7 @@
     "axios": "^1.8.4",
     "cashfree-pg": "^5.0.8",
     "cloudinary": "^2.7.0",
+    "dotenv": "^17.2.3",
     "framer-motion": "^12.18.1",
     "ioredis": "^5.8.2",
     "mongoose": "^8.13.2",

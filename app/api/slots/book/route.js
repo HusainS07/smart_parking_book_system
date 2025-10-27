@@ -1,3 +1,4 @@
+// app/api/slots/book/route.js
 import dbConnect from "@/lib/dbConnect";
 import ParkingSlot from "@/models/parkingslots";
 import { NextResponse } from "next/server";

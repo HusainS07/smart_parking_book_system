@@ -182,133 +182,149 @@ export default function BookClient({ initialSlots, initialWallet, session, locat
       showToast(`Booking failed: ${err.response?.data?.error || 'Unknown error'}`);
     }
   };
+// ========================================
+// 1. BOOKING PAGE FIX - handleUPIBooking
+// ========================================
+// Replace your handleUPIBooking function with this:
 
-  const handleUPIBooking = async (slot) => {
-    if (selectedHour === null) {
-      showToast('Please select an hour');
-      return;
-    }
 
-    if (!session?.user) {
-      showToast('Please log in');
-      return;
-    }
+// ========================================
+// UPDATED BOOKING PAGE - handleUPIBooking
+// Replace in your BookClient component
+// ========================================
+const handleUPIBooking = async (slot) => {
+  if (selectedHour === null) {
+    showToast('Please select an hour');
+    return;
+  }
 
-    try {
-      console.log('Client: Initiating UPI payment for slot:', slot.slotid);
-      const orderResponse = await axios.post('/api/payments/create-order', {
-        slotid: slot.slotid,
-        amount: slot.amount,
-      }, {
-        headers: { 'Content-Type': 'application/json' },
-        withCredentials: true,
-      });
+  if (!session?.user) {
+    showToast('Please log in');
+    return;
+  }
 
-      const { orderId, amount, currency } = orderResponse.data;
-      console.log('Client: Order created:', { orderId, amount, currency });
+  try {
+    const bookingDate = formatDate(new Date());
+    
+    console.log('📝 Client: Creating order with minimal data:', {
+      slotid: slot.slotid,
+      amount: slot.amount,
+      date: bookingDate,
+      hour: selectedHour
+    });
 
-      const script = document.createElement('script');
-      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-      script.async = true;
-      document.body.appendChild(script);
+    // Step 1: Create order (queues only slotid + date + hour)
+    const orderResponse = await axios.post('/api/payments/create-order', {
+      slotid: slot.slotid,
+      amount: slot.amount,
+      date: bookingDate,      // ✅ Required for queue
+      hour: selectedHour,     // ✅ Required for queue
+    }, {
+      headers: { 'Content-Type': 'application/json' },
+      withCredentials: true,
+    });
 
-      script.onload = () => {
-        const bookingDate = formatDate(new Date());
-        console.log('Client: UPI Booking Payload:', {
-          slotid: slot.slotid,
-          hour: selectedHour,
-          date: bookingDate,
+    const { orderId, amount, currency } = orderResponse.data;
+    console.log('✅ Client: Order created:', { orderId, amount, currency });
+
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    document.body.appendChild(script);
+
+    script.onload = () => {
+      const options = {
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        amount: amount,
+        currency: currency,
+        order_id: orderId,
+        name: 'Parking Slot Booking',
+        description: `Slot ${slot.slotid} at ${selectedHour}:00 on ${bookingDate}`,
+        image: '/logo.png',
+        handler: async (response) => {
+          try {
+            console.log('✅ Client: Payment successful:', response);
+            
+            // Step 2: Book the slot
+            await axios.post('/api/slots/book', {
+              slotid: slot.slotid,
+              hour: selectedHour,
+              date: bookingDate,
+              payment_id: response.razorpay_payment_id,
+              email: session.user.email,
+              location: selectedLocation,
+            }, {
+              headers: { 'Content-Type': 'application/json' },
+              withCredentials: true,
+            });
+
+            // Update UI
+            setSlots((prev) =>
+              prev.map((s) =>
+                s.slotid === slot.slotid
+                  ? {
+                      ...s,
+                      bookedHours: [
+                        ...(Array.isArray(s.bookedHours) ? s.bookedHours : []),
+                        {
+                          hour: selectedHour,
+                          email: session.user.email,
+                          date: new Date(bookingDate),
+                          payment_id: response.razorpay_payment_id,
+                        },
+                      ],
+                    }
+                  : s
+              )
+            );
+
+            showToast(
+              `✅ Booked slot ${slot.slotid} at ${selectedHour}:00 on ${bookingDate}`,
+              'success'
+            );
+            setSelectedSlot(null);
+            setSelectedHour(null);
+          } catch (err) {
+            console.error('❌ Client: Booking error after payment:', err);
+            showToast(`Booking failed: ${err.response?.data?.error || 'Unknown error'}`);
+          }
+        },
+        prefill: {
           email: session.user.email,
-          location: selectedLocation,
-        });
-
-        const options = {
-          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-          amount: amount,
-          currency: currency,
-          order_id: orderId,
-          name: 'Parking Slot Booking',
-          description: `Booking for slot ${slot.slotid} at ${selectedHour}:00`,
-          image: '/logo.png',
-          handler: async (response) => {
-            try {
-              console.log('Client: Razorpay Response:', response);
-              await axios.post('/api/slots/book', {
-                slotid: slot.slotid,
-                hour: selectedHour,
-                date: bookingDate,
-                payment_id: response.razorpay_payment_id,
-                email: session.user.email,
-                location: selectedLocation,
-              }, {
-                headers: { 'Content-Type': 'application/json' },
-                withCredentials: true,
-              });
-
-              setSlots((prev) =>
-                prev.map((s) =>
-                  s.slotid === slot.slotid
-                    ? {
-                        ...s,
-                        bookedHours: [
-                          ...(Array.isArray(s.bookedHours) ? s.bookedHours : []),
-                          {
-                            hour: selectedHour,
-                            email: session.user.email,
-                            date: new Date(bookingDate),
-                            payment_id: response.razorpay_payment_id,
-                          },
-                        ],
-                      }
-                    : s
-                )
-              );
-
-              showToast(`Booked slot ${slot.slotid} at ${selectedHour}:00–${selectedHour + 1}:00 via UPI. Payment ID: ${response.razorpay_payment_id}`, 'success');
-              setSelectedSlot(null);
-              setSelectedHour(null);
-            } catch (err) {
-              console.error('Client: Booking error after payment:', err);
-              showToast(`Booking failed: ${err.response?.data?.error || 'Unknown error'}`);
-            }
-          },
-          prefill: {
-            email: session.user.email,
-            contact: session.user.phone || '',
-            method: 'upi',
-            vpa: 'success@razorpay',
-          },
-          theme: {
-            color: '#4B0082',
-          },
-          method: {
-            upi: true,
-            card: false,
-            netbanking: false,
-            wallet: false,
-            emi: false,
-            paylater: false,
-          },
-        };
-
-        console.log('Client: Razorpay Options:', options);
-        const rzp = new window.Razorpay(options);
-        rzp.on('payment.failed', (response) => {
-          console.error('Client: Payment failed:', response.error);
-          showToast(`Payment failed: ${response.error.description || 'Invalid UPI ID or payment issue'}`);
-        });
-        rzp.open();
+          contact: session.user.phone || '',
+          method: 'upi',
+          vpa: 'success@razorpay',
+        },
+        theme: {
+          color: '#4B0082',
+        },
+        method: {
+          upi: true,
+          card: false,
+          netbanking: false,
+          wallet: false,
+          emi: false,
+          paylater: false,
+        },
       };
 
-      script.onerror = () => {
-        console.error('Client: Failed to load Razorpay SDK');
-        showToast('Failed to load Razorpay SDK');
-      };
-    } catch (err) {
-      console.error('Client: UPI payment error:', err);
-      showToast(`UPI payment failed: ${err.response?.data?.error || 'Unknown error'}`);
-    }
-  };
+      const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', (response) => {
+        console.error('❌ Client: Payment failed:', response.error);
+        showToast(`Payment failed: ${response.error.description || 'Payment issue'}`);
+      });
+      rzp.open();
+    };
+
+    script.onerror = () => {
+      console.error('❌ Client: Failed to load Razorpay SDK');
+      showToast('Failed to load Razorpay SDK');
+    };
+  } catch (err) {
+    console.error('❌ Client: UPI payment error:', err);
+    showToast(`UPI payment failed: ${err.response?.data?.error || 'Unknown error'}`);
+  }
+};
 
   // Update URL when location changes
   useEffect(() => {
