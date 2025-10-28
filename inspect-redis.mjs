@@ -1,4 +1,4 @@
-// inspect-redis.mjs - Run with: node inspect-redis.mjs
+// inspect-redis.mjs 
 import { Redis } from '@upstash/redis';
 import dotenv from 'dotenv';
 
@@ -17,11 +17,11 @@ async function inspectRedis() {
 
   // Check queue length
   const queueLength = await redis.llen(PAYMENT_QUEUE);
-  console.log(`📊 Queue length: ${queueLength}`);
+  console.log(` Queue length: ${queueLength}`);
 
   // Get all items in queue (without removing them)
   if (queueLength > 0) {
-    console.log('\n📦 Items in queue:');
+    console.log('\n Items in queue:');
     const items = await redis.lrange(PAYMENT_QUEUE, 0, -1);
     items.forEach((item, index) => {
       console.log(`\n--- Item ${index + 1} ---`);
@@ -41,16 +41,16 @@ async function inspectRedis() {
 
   // Check active bookings
   const activeBookings = await redis.smembers(ACTIVE_BOOKINGS);
-  console.log(`\n📌 Active bookings: ${activeBookings?.length || 0}`);
+  console.log(`\n Active bookings: ${activeBookings?.length || 0}`);
   if (activeBookings?.length > 0) {
     activeBookings.forEach(key => console.log(`   - ${key}`));
   }
 
-  console.log('\n✅ Inspection complete');
+  console.log('\n Inspection complete');
   process.exit(0);
 }
 
 inspectRedis().catch(err => {
-  console.error('❌ Inspection failed:', err);
+  console.error('Inspection failed:', err);
   process.exit(1);
 });

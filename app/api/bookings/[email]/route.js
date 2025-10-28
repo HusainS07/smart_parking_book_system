@@ -1,3 +1,4 @@
+// app/api/bookings/[email]/route.js
 import dbConnect from '@/lib/dbConnect';
 import ParkingSlot from '@/models/parkingslots';
 import { NextResponse } from 'next/server';
@@ -17,23 +18,23 @@ export async function GET(request, { params }) {
 
     // Validate email match
     if (emailParam !== sessionEmail) {
-      console.log('❌ Email mismatch:', { emailParam, sessionEmail });
+      console.log(' Email mismatch:', { emailParam, sessionEmail });
       return NextResponse.json({ error: 'Forbidden: Email mismatch' }, { status: 403 });
     }
 
     await dbConnect();
-    console.log('✅ Database connected, looking for bookings for:', emailParam);
+    console.log(' Database connected, looking for bookings for:', emailParam);
 
     // Get all slots first
     const allSlots = await ParkingSlot.find({}).lean();
-    console.log(`📊 Found ${allSlots.length} total slots in database`);
+    console.log(` Found ${allSlots.length} total slots in database`);
 
     // Process each slot for the target email
     const bookings = [];
     allSlots.forEach(slot => {
       // Log all bookings in this slot
       if (slot.bookedHours && slot.bookedHours.length > 0) {
-        console.log(`\n🎫 Slot ${slot.slotid} has bookings:`, 
+        console.log(`\n Slot ${slot.slotid} has bookings:`, 
           JSON.stringify(slot.bookedHours.map(b => ({
             email: b.email,
             date: b.date,
@@ -80,7 +81,7 @@ export async function GET(request, { params }) {
           }));
 
         if (matchingBookings.length > 0) {
-          console.log(`✅ Found ${matchingBookings.length} matching bookings in slot ${slot.slotid}`);
+          console.log(` Found ${matchingBookings.length} matching bookings in slot ${slot.slotid}`);
           bookings.push(...matchingBookings);
         }
       }
@@ -88,9 +89,9 @@ export async function GET(request, { params }) {
 
     // Log final results
     if (bookings.length === 0) {
-      console.log('⚠️ No bookings found for email:', emailParam);
+      console.log(' No bookings found for email:', emailParam);
     } else {
-      console.log('🎉 Final results:', {
+      console.log(' Final results:', {
         totalBookings: bookings.length,
         bookings: bookings.map(b => ({
           slotId: b.slotId,
@@ -104,7 +105,7 @@ export async function GET(request, { params }) {
 
     return NextResponse.json(bookings, { status: 200 });
   } catch (err) {
-    console.error('❌ Error fetching bookings:', err);
+    console.error(' Error fetching bookings:', err);
     return NextResponse.json({ error: 'Internal Server Error', details: err.message }, { status: 500 });
   }
 }

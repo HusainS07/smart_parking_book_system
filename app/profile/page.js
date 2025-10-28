@@ -41,12 +41,12 @@ export default function ProfilePage() {
   // Clear error after timeout
   useEffect(() => {
     if (error) {
-      const timer = setTimeout(() => setError(null), 5000); // Reduced to 5s for faster dismissal
+      const timer = setTimeout(() => setError(null), 5000); // 5 second timeout 
       return () => clearTimeout(timer);
     }
   }, [error]);
 
-  // Fetch user data
+  // Fetch user data on session change
   useEffect(() => {
     if (status === 'loading') return;
 
@@ -93,7 +93,7 @@ export default function ProfilePage() {
       });
   }, [session, status, handleError]);
 
-  // Fetch bookings and lots
+  // Fetch bookings and lots on tab change
   useEffect(() => {
     if (!session?.user?.email) return;
 
@@ -130,7 +130,7 @@ export default function ProfilePage() {
     }
   }, [activeTab, session, handleError]);
 
-  // Handle input changes
+  // Handle input changes in profile form
   const handleInputChange = (e) => {
     const { name, value } = e.target;
 
@@ -145,14 +145,14 @@ export default function ProfilePage() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Handle image upload
+  // Handle image upload  
   const handleImageUpload = (base64) => {
     setImageUrl(base64);
     setFormData((prev) => ({ ...prev, image: base64 }));
     setImageUploading(false);
   };
 
-  // Handle profile update
+  // Handle profile update 
   const handleUpdate = async () => {
     if (!formData.email) return;
 
@@ -202,7 +202,7 @@ export default function ProfilePage() {
     }
   };
 
-  // Handle lot form changes
+  // Handle lot form changes 
   const handleLotFormChange = (e) => {
     const { name, value } = e.target;
 
@@ -213,7 +213,7 @@ export default function ProfilePage() {
     setLotForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Handle lot submission
+  // Handle lot submission 
   const handleLotSubmit = async () => {
     setLotSubmitLoading(true);
     setError(null);
@@ -565,6 +565,11 @@ export default function ProfilePage() {
                     <p className="flex justify-between">
                       <span className="font-medium text-gray-700">Amount:</span>
                       <span className="text-green-600 font-semibold">₹{b.amount || '0'}</span>
+                    </p>
+                    <p className="flex justify-between">
+                      <span className="font-medium text-gray-700">Payment Id:</span>
+                       <span className="text-green-600 font-semibold">₹{b.paymentId || 'NOT LOADED'}</span>
+                      
                     </p>
                   </div>
                 </div>

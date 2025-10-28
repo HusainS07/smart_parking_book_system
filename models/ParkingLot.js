@@ -5,8 +5,8 @@ const { Schema, model } = mongoose;
 const parkingLotSchema = new Schema({
   ownerId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   lotName: { type: String, required: true },
-  address: { type: String, required: true },   // moved out of location
-  city: { type: String, required: true },      // moved out of location
+  address: { type: String, required: true },   
+  city: { type: String, required: true },      
   lat: Number,
   lng: Number,
   totalSpots: { type: Number, required: true },

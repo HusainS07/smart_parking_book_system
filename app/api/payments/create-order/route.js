@@ -1,7 +1,6 @@
-// ========================================
-// CRITICAL: Replace your ENTIRE create-order route with this
-// File: app/api/payments/create-order/route.js
-// ========================================
+
+//  app/api/payments/create-order/route.js
+
 import { NextResponse } from 'next/server';
 import Razorpay from 'razorpay';
 import { getServerSession } from 'next-auth';

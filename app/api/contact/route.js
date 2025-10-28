@@ -1,3 +1,14 @@
+// app/api/contact/route.js
+// This API:
+
+// Receives a user help query.
+
+// Checks if it matches a known FAQ using keyword similarity.
+
+// If yes → replies instantly with a natural AI-generated answer.
+
+// If not → stores the query for manual support response.
+
 import dbConnect from "@/lib/dbConnect";
 import Help from "@/models/help";
 
@@ -77,7 +88,7 @@ function findBestMatch(query) {
   return bestMatch;
 }
 
-// 🔹 OpenRouter Chat Completion API
+//  OpenRouter Chat Completion API
 async function getChatCompletion(prompt) {
   try {
     // Validate environment variables

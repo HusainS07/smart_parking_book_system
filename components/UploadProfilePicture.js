@@ -15,7 +15,7 @@ export default function UploadProfilePicture({ onUpload }) {
       alert('Please upload a valid image (JPEG, PNG, or GIF).');
       return;
     }
-    if (file.size > 5 * 1024 * 1024) { // 5MB limit
+    if (file.size > 5 * 1024 * 1024) { // 5 MB limit
       alert('Image size must be less than 5MB.');
       return;
     }

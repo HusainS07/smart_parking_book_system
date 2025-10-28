@@ -1,3 +1,4 @@
+// app/api/wallet/deduct/route.js
 import dbConnect from "@/lib/dbConnect";
 import Wallet from "@/models/wallet";
 import { NextResponse } from "next/server";
@@ -20,7 +21,7 @@ export async function POST(req) {
   }
 
   try {
-    const wallet = await Wallet.findOne({ email }); // ✅ Query by email
+    const wallet = await Wallet.findOne({ email }); //  Query by email
 
     if (!wallet) {
       return NextResponse.json({ error: "Wallet not found" }, { status: 404 });
