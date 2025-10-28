@@ -3,7 +3,7 @@ import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import SessionWrapper from "@/components/SessionWrapper";
-import './payment-workers';
+
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
