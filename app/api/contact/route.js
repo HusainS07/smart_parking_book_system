@@ -1,17 +1,157 @@
 // app/api/contact/route.js
-// This API:
-
-// Receives a user help query.
-
-// Checks if it matches a known FAQ using keyword similarity.
-
-// If yes → replies instantly with a natural AI-generated answer.
-
-// If not → stores the query for manual support response.
+// Updated to use RAG microservice API
 
 import dbConnect from "@/lib/dbConnect";
 import Help from "@/models/help";
 
+// 🔹 NEW: Call RAG Microservice API
+async function askRAGService(name, email, query) {
+  try {
+    console.log("🔄 Calling RAG microservice...");
+    
+    const response = await fetch("https://rag-s-park-api.onrender.com/api/ask", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      body: JSON.stringify({
+        name: name,
+        email: email,
+        query: query
+      }),
+      signal: AbortSignal.timeout(30000) // 30 second timeout
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("❌ RAG API error:", response.status, errorText);
+      throw new Error(`RAG API returned ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log("✅ RAG API response:", data);
+
+    return {
+      success: true,
+      answer: data.answer,
+      matched: data.matched
+    };
+
+  } catch (error) {
+    console.error("❌ RAG service error:", error.message);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+// 🔹 Input validation
+function validateInput(name, email, query) {
+  const errors = [];
+  
+  if (!name || name.trim().length < 2) {
+    errors.push("Name must be at least 2 characters long");
+  }
+  
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!email || !emailRegex.test(email)) {
+    errors.push("Please provide a valid email address");
+  }
+  
+  if (!query || query.trim().length < 3) {
+    errors.push("Query must be at least 3 characters long");
+  }
+  
+  return errors;
+}
+
+// 🔹 Main API Route handler
+export async function POST(req) {
+  try {
+    const { name, email, query } = await req.json();
+
+    // Validate input
+    const validationErrors = validateInput(name, email, query);
+    if (validationErrors.length > 0) {
+      return new Response(
+        JSON.stringify({ 
+          error: "Validation failed", 
+          details: validationErrors 
+        }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const cleanQuery = query.trim();
+    const cleanName = name.trim();
+    const cleanEmail = email.trim();
+
+    // 🚀 NEW: Call RAG microservice instead of local FAQ matching
+    const ragResult = await askRAGService(cleanName, cleanEmail, cleanQuery);
+
+    if (ragResult.success && ragResult.matched) {
+      // ✅ RAG service found an answer
+      return new Response(
+        JSON.stringify({ 
+          answer: ragResult.answer,
+          matched: true,
+          source: "RAG microservice"
+        }), 
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    // ⚠️ RAG service didn't find a match OR failed — save query for manual follow-up
+    console.log("💾 Saving query to database for manual follow-up...");
+    
+    await dbConnect();
+    await new Help({ 
+      name: cleanName, 
+      email: cleanEmail, 
+      query: cleanQuery,
+      timestamp: new Date(),
+      status: 'pending'
+    }).save();
+
+    return new Response(
+      JSON.stringify({
+        answer: "Thank you for your question! We couldn't find an exact answer in our knowledge base right now, but we've registered your query and our support team will get back to you via email within 24 hours.",
+        matched: false,
+        registered: true
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+
+  } catch (error) {
+    console.error("API error:", error.message);
+    
+    let errorMessage = "We're experiencing technical difficulties. Please try again in a few minutes.";
+    
+    if (error.message.includes("database") || error.message.includes("DB")) {
+      errorMessage = "Database connection issue. Your query couldn't be saved. Please try again.";
+    }
+
+    return new Response(
+      JSON.stringify({ 
+        error: errorMessage,
+        code: "SERVER_ERROR"
+      }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
+}
+
+
+/* ==========================================
+   🔻 OLD CODE - COMMENTED OUT FOR REFERENCE
+   ========================================== */
+
+/*
 const faqs = [
   {
     id: 1,
@@ -152,127 +292,4 @@ async function getChatCompletion(prompt) {
     return null; // Fallback to FAQ answer
   }
 }
-
-// 🔹 Input validation
-function validateInput(name, email, query) {
-  const errors = [];
-  
-  if (!name || name.trim().length < 2) {
-    errors.push("Name must be at least 2 characters long");
-  }
-  
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!email || !emailRegex.test(email)) {
-    errors.push("Please provide a valid email address");
-  }
-  
-  if (!query || query.trim().length < 3) {
-    errors.push("Query must be at least 3 characters long");
-  }
-  
-  return errors;
-}
-
-// 🔹 Main API Route handler
-export async function POST(req) {
-  try {
-    const { name, email, query } = await req.json();
-
-    // Validate input
-    const validationErrors = validateInput(name, email, query);
-    if (validationErrors.length > 0) {
-      return new Response(
-        JSON.stringify({ 
-          error: "Validation failed", 
-          details: validationErrors 
-        }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    const cleanQuery = query.trim();
-    
-    // Find best matching FAQ using keyword 
-    const bestMatch = findBestMatch(cleanQuery);
-    
-    console.log(`Best match for "${cleanQuery}":`, {
-      faqId: bestMatch.faq?.id,
-      score: bestMatch.score,
-      threshold: 0.3,
-      matchedQuestion: bestMatch.faq?.question,
-      defaultAnswer: bestMatch.faq?.answer
-    });
-
-    // If we have a good match (score > 0.3), provide an answer
-    if (bestMatch.score > 0.3 && bestMatch.faq) {
-      let finalAnswer = bestMatch.faq.answer;
-      
-      // Try to generate a more natural response using AI
-      const prompt = `User's question: "${cleanQuery}"
-
-Based on this information:
-Question: "${bestMatch.faq.question}"
-Answer: "${bestMatch.faq.answer}"
-
-Provide a helpful, natural, and clear response to the user's question, rephrasing the answer to match the user's query style and intent. Keep it concise, friendly, and informative.`;
-
-      const aiAnswer = await getChatCompletion(prompt);
-      if (aiAnswer) {
-        finalAnswer = aiAnswer;
-        console.log("AI-generated answer:", finalAnswer);
-      } else {
-        console.log("Falling back to FAQ answer due to AI failure");
-      }
-
-      return new Response(
-        JSON.stringify({ 
-          answer: finalAnswer,
-          matched: true,
-          matchedFaq: bestMatch.faq.question,
-          confidence: Math.round(bestMatch.score * 100),
-          isAIGenerated: !!aiAnswer
-        }), 
-        {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    // No good match found — save user query for manual follow-up
-    await dbConnect();
-    await new Help({ 
-      name: name.trim(), 
-      email: email.trim(), 
-      query: cleanQuery,
-      timestamp: new Date(),
-      status: 'pending'
-    }).save();
-
-    return new Response(
-      JSON.stringify({
-        answer: "Thank you for your question! We couldn't find an exact answer in our FAQ right now, but we've registered your query and our support team will get back to you via email within 24 hours.",
-        matched: false,
-        registered: true
-      }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
-    );
-
-  } catch (error) {
-    console.error("API error:", error.message);
-    
-    let errorMessage = "We're experiencing technical difficulties. Please try again in a few minutes.";
-    
-    if (error.message.includes("database") || error.message.includes("DB")) {
-      errorMessage = "Database connection issue. Your query couldn't be saved. Please try again.";
-    }
-
-    return new Response(
-      JSON.stringify({ 
-        error: errorMessage,
-        code: "SERVER_ERROR"
-      }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    );
-  }
-}
+*/
