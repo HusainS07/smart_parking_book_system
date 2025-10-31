@@ -193,6 +193,7 @@ export default function BookClient({ initialSlots, initialWallet, session, locat
 // Replace in your BookClient component
 // ========================================
 const handleUPIBooking = async (slot) => {
+  
   if (selectedHour === null) {
     showToast('Please select an hour');
     return;
@@ -202,6 +203,9 @@ const handleUPIBooking = async (slot) => {
     showToast('Please log in');
     return;
   }
+
+  if (loading) return;
+  setLoading(true);
 
   try {
     const bookingDate = formatDate(new Date());
@@ -324,6 +328,10 @@ const handleUPIBooking = async (slot) => {
     console.error('❌ Client: UPI payment error:', err);
     showToast(`UPI payment failed: ${err.response?.data?.error || 'Unknown error'}`);
   }
+  finally {
+    setLoading(false);
+  }
+
 };
 
   // Update URL when location changes
@@ -556,6 +564,7 @@ const handleUPIBooking = async (slot) => {
                         <button
                           className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-semibold py-2.5 rounded-lg transition-all duration-150 flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
                           onClick={() => handleUPIBooking(slot)}
+                          disabled={loading}     
                           aria-label={`Book slot ${slot.slotid} with UPI`}
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
