@@ -1,22 +1,9 @@
-// app/api/auth/[...nextauth]/route.js
-
-// It connects to MongoDB using mongoose to store and check user info.
-
-// For credentials login, it finds the user by email and checks if the password matches (you should use hashing later).
-
-// For Google/GitHub login, it automatically creates a new user (and a wallet with ₹0 balance) if they don’t exist.
-
-// It uses JWT tokens to store login sessions securely, not a database session.
-
-// The callbacks (jwt, session, signIn) customize what’s saved in the token/session and ensure the user is stored properly.
-
-// Finally, it exports the handler so Next.js can manage routes like /api/auth/signin, /api/auth/session, etc.
-
 import NextAuth from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from 'next-auth/providers/google';
 import GitHubProvider from 'next-auth/providers/github';
 import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs'; // Import bcrypt
 import User from '@/models/user';
 import Wallet from '@/models/wallet';
 
@@ -49,7 +36,9 @@ export const authOptions = {
           throw new Error('Invalid email or password');
         }
 
-        if (user.password !== credentials.password) {
+        // Compare hashed password
+        const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
+        if (!isPasswordValid) {
           console.log('❌ Password mismatch');
           throw new Error('Invalid email or password');
         }
@@ -99,7 +88,7 @@ export const authOptions = {
         const newUser = await User.create({
           email: user.email,
           name,
-          password: null,
+          password: null, // OAuth users don't need a password
           role: 'user',
         });
 

@@ -9,7 +9,7 @@ import { NextResponse } from 'next/server'; // Helper for sending HTTP responses
    Fetches user details based on the provided email parameter.
 -------------------------------------------------------------------------- */
 export async function GET(request, { params }) {
-  console.log('=== GET /api/user/[email] Debug Info ===');
+ 
   console.log('Raw params:', params);
   console.log('params.email:', params.email);
 
