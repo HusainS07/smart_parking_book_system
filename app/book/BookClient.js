@@ -236,171 +236,247 @@ export default function BookClient({
       );
     }
   };
-  // ========================================
-  // 1. BOOKING PAGE FIX - handleUPIBooking
-  // ========================================
-  // Replace your handleUPIBooking function with this:
+ // ========================================
+// FIXED BOOKING CLIENT - handleUPIBooking
+// Handles payment cancellation properly
+// ========================================
 
-  // ========================================
-  // UPDATED BOOKING PAGE - handleUPIBooking
-  // Replace in your BookClient component
-  // ========================================
-  const handleUPIBooking = async (slot) => {
-    if (selectedHour === null) {
-      showToast("Please select an hour");
-      return;
-    }
+const handleUPIBooking = async (slot) => {
+  if (selectedHour === null) {
+    showToast("Please select an hour");
+    return;
+  }
 
-    if (!session?.user) {
-      showToast("Please log in");
-      return;
-    }
+  if (!session?.user) {
+    showToast("Please log in");
+    return;
+  }
 
-    if (paymentLoading) return;
-    setPaymentLoading(true);
+  if (paymentLoading) return;
+  setPaymentLoading(true);
 
-    try {
-      const bookingDate = formatDate(new Date());
+  let orderId = null; // Track order ID for cleanup
+  let razorpayInstance = null;
 
-      console.log("📝 Client: Creating order with minimal data:", {
+  try {
+    const bookingDate = formatDate(new Date());
+
+    console.log("📝 Client: Creating order with minimal data:", {
+      slotid: slot.slotid,
+      amount: slot.amount,
+      date: bookingDate,
+      hour: selectedHour,
+    });
+
+    // Step 1: Create order (queues only slotid + date + hour)
+    const orderResponse = await axios.post(
+      "/api/payments/create-order",
+      {
         slotid: slot.slotid,
         amount: slot.amount,
         date: bookingDate,
         hour: selectedHour,
-      });
+      },
+      {
+        headers: { "Content-Type": "application/json" },
+        withCredentials: true,
+      }
+    );
 
-      // Step 1: Create order (queues only slotid + date + hour)
-      const orderResponse = await axios.post(
-        "/api/payments/create-order",
-        {
-          slotid: slot.slotid,
-          amount: slot.amount,
-          date: bookingDate, // ✅ Required for queue
-          hour: selectedHour, // ✅ Required for queue
+    const { orderId: createdOrderId, amount, currency } = orderResponse.data;
+    orderId = createdOrderId;
+    console.log("✅ Client: Order created:", { orderId, amount, currency });
+
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    document.body.appendChild(script);
+
+    script.onload = () => {
+      const options = {
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        amount: amount,
+        currency: currency,
+        order_id: orderId,
+        name: "Parking Slot Booking",
+        description: `Slot ${slot.slotid} at ${selectedHour}:00 on ${bookingDate}`,
+        image: "/logo.png",
+        
+        // ✅ SUCCESS HANDLER
+        handler: async (response) => {
+          try {
+            console.log("✅ Client: Payment successful:", response);
+
+            // Step 2: Book the slot
+            await axios.post(
+              "/api/slots/book",
+              {
+                slotid: slot.slotid,
+                hour: selectedHour,
+                date: bookingDate,
+                payment_id: response.razorpay_payment_id,
+                email: session.user.email,
+                location: selectedLocation,
+              },
+              {
+                headers: { "Content-Type": "application/json" },
+                withCredentials: true,
+              }
+            );
+
+            // Update UI
+            setSlots((prev) =>
+              prev.map((s) =>
+                s.slotid === slot.slotid
+                  ? {
+                      ...s,
+                      bookedHours: [
+                        ...(Array.isArray(s.bookedHours) ? s.bookedHours : []),
+                        {
+                          hour: selectedHour,
+                          email: session.user.email,
+                          date: new Date(bookingDate),
+                          payment_id: response.razorpay_payment_id,
+                        },
+                      ],
+                    }
+                  : s
+              )
+            );
+
+            showToast(
+              `✅ Booked slot ${slot.slotid} at ${selectedHour}:00 on ${bookingDate}`,
+              "success"
+            );
+            setSelectedSlot(null);
+            setSelectedHour(null);
+          } catch (err) {
+            console.error("❌ Client: Booking error after payment:", err);
+            showToast(
+              `Booking failed: ${err.response?.data?.error || "Unknown error"}`
+            );
+          } finally {
+            setPaymentLoading(false);
+          }
         },
-        {
-          headers: { "Content-Type": "application/json" },
-          withCredentials: true,
-        }
-      );
-
-      const { orderId, amount, currency } = orderResponse.data;
-      console.log("✅ Client: Order created:", { orderId, amount, currency });
-
-      const script = document.createElement("script");
-      script.src = "https://checkout.razorpay.com/v1/checkout.js";
-      script.async = true;
-      document.body.appendChild(script);
-
-      script.onload = () => {
-        const options = {
-          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-          amount: amount,
-          currency: currency,
-          order_id: orderId,
-          name: "Parking Slot Booking",
-          description: `Slot ${slot.slotid} at ${selectedHour}:00 on ${bookingDate}`,
-          image: "/logo.png",
-          handler: async (response) => {
+        
+        // ✅ MODAL DISMISSED HANDLER (User closes/cancels)
+        modal: {
+          ondismiss: async () => {
+            console.log("⚠️ Client: Payment modal dismissed/cancelled");
+            
+            // Clean up the Redis booking lock
             try {
-              console.log("✅ Client: Payment successful:", response);
-
-              // Step 2: Book the slot
               await axios.post(
-                "/api/slots/book",
+                "/api/payments/cancel-order",
                 {
                   slotid: slot.slotid,
-                  hour: selectedHour,
                   date: bookingDate,
-                  payment_id: response.razorpay_payment_id,
-                  email: session.user.email,
-                  location: selectedLocation,
+                  hour: selectedHour,
                 },
                 {
                   headers: { "Content-Type": "application/json" },
                   withCredentials: true,
                 }
               );
-
-              // Update UI
-              setSlots((prev) =>
-                prev.map((s) =>
-                  s.slotid === slot.slotid
-                    ? {
-                        ...s,
-                        bookedHours: [
-                          ...(Array.isArray(s.bookedHours)
-                            ? s.bookedHours
-                            : []),
-                          {
-                            hour: selectedHour,
-                            email: session.user.email,
-                            date: new Date(bookingDate),
-                            payment_id: response.razorpay_payment_id,
-                          },
-                        ],
-                      }
-                    : s
-                )
-              );
-
-              showToast(
-                `✅ Booked slot ${slot.slotid} at ${selectedHour}:00 on ${bookingDate}`,
-                "success"
-              );
-              setSelectedSlot(null);
-              setSelectedHour(null);
-            } catch (err) {
-              console.error("❌ Client: Booking error after payment:", err);
-              showToast(
-                `Booking failed: ${
-                  err.response?.data?.error || "Unknown error"
-                }`
-              );
+              console.log("✅ Client: Booking lock released");
+            } catch (cleanupErr) {
+              console.error("❌ Client: Failed to release lock:", cleanupErr);
             }
-          },
-          prefill: {
-            email: session.user.email,
-            contact: session.user.phone || "",
-            method: "upi",
-            vpa: "success@razorpay",
-          },
-          theme: {
-            color: "#4B0082",
-          },
-          method: {
-            upi: true,
-            card: false,
-            netbanking: false,
-            wallet: false,
-            emi: false,
-            paylater: false,
-          },
-        };
+            
+            showToast("Payment cancelled", "info");
+            setPaymentLoading(false);
+          }
+        },
 
-        const rzp = new window.Razorpay(options);
-        rzp.on("payment.failed", (response) => {
-          console.error("❌ Client: Payment failed:", response.error);
-          showToast(
-            `Payment failed: ${response.error.description || "Payment issue"}`
+        prefill: {
+          email: session.user.email,
+          contact: session.user.phone || "",
+          method: "upi",
+          vpa: "success@razorpay",
+        },
+        theme: {
+          color: "#4B0082",
+        },
+        method: {
+          upi: true,
+          card: false,
+          netbanking: false,
+          wallet: false,
+          emi: false,
+          paylater: false,
+        },
+      };
+
+      razorpayInstance = new window.Razorpay(options);
+      
+      // ✅ PAYMENT FAILED HANDLER
+      razorpayInstance.on("payment.failed", async (response) => {
+        console.error("❌ Client: Payment failed:", response.error);
+        
+        // Clean up the Redis booking lock
+        try {
+          await axios.post(
+            "/api/payments/cancel-order",
+            {
+              slotid: slot.slotid,
+              date: bookingDate,
+              hour: selectedHour,
+            },
+            {
+              headers: { "Content-Type": "application/json" },
+              withCredentials: true,
+            }
           );
-        });
-        rzp.open();
-      };
+          console.log("✅ Client: Booking lock released after failure");
+        } catch (cleanupErr) {
+          console.error("❌ Client: Failed to release lock:", cleanupErr);
+        }
+        
+        showToast(
+          `Payment failed: ${response.error.description || "Payment issue"}`
+        );
+        setPaymentLoading(false);
+      });
+      
+      razorpayInstance.open();
+    };
 
-      script.onerror = () => {
-        console.error("❌ Client: Failed to load Razorpay SDK");
-        showToast("Failed to load Razorpay SDK");
-      };
-    } catch (err) {
-      console.error("❌ Client: UPI payment error:", err);
-      showToast(
-        `UPI payment failed: ${err.response?.data?.error || "Unknown error"}`
-      );
-    } finally {
+    script.onerror = () => {
+      console.error("❌ Client: Failed to load Razorpay SDK");
+      showToast("Failed to load Razorpay SDK");
       setPaymentLoading(false);
+    };
+  } catch (err) {
+    console.error("❌ Client: UPI payment error:", err);
+    
+    // Clean up if order was created but Razorpay failed to load
+    if (orderId) {
+      try {
+        await axios.post(
+          "/api/payments/cancel-order",
+          {
+            slotid: slot.slotid,
+            date: formatDate(new Date()),
+            hour: selectedHour,
+          },
+          {
+            headers: { "Content-Type": "application/json" },
+            withCredentials: true,
+          }
+        );
+        console.log("✅ Client: Booking lock released after error");
+      } catch (cleanupErr) {
+        console.error("❌ Client: Failed to release lock:", cleanupErr);
+      }
     }
-  };
+    
+    showToast(
+      `UPI payment failed: ${err.response?.data?.error || "Unknown error"}`
+    );
+    setPaymentLoading(false);
+  }
+};
 
   // Update URL when location changes
   useEffect(() => {
