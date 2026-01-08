@@ -12,6 +12,7 @@ export default function Help() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [expandedIndex, setExpandedIndex] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (session) {
@@ -56,6 +57,10 @@ export default function Help() {
       return;
     }
 
+    setIsLoading(true);
+    setError("");
+    setSuccess("");
+
     try {
       const res = await fetch("/api/contact", {
         method: "POST",
@@ -76,6 +81,8 @@ export default function Help() {
     } catch (err) {
       setError("Failed to send message.");
       setSuccess("");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -135,6 +142,12 @@ export default function Help() {
             {error}
           </div>
         )}
+        {isLoading && (
+          <div className="mb-4 p-3 rounded text-blue-700 bg-blue-100 border border-blue-400 flex items-center justify-center gap-2">
+            <div className="inline-block h-4 w-4 rounded-full border-2 border-blue-700 border-t-transparent animate-spin"></div>
+            Processing your request, please wait...
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
           <input
@@ -161,9 +174,14 @@ export default function Help() {
           />
           <button
             type="submit"
-            className="w-full bg-blue-700 hover:bg-blue-800 text-white py-3 rounded font-semibold transition"
+            disabled={isLoading}
+            className={`w-full py-3 rounded font-semibold transition ${
+              isLoading
+                ? "bg-gray-400 text-gray-600 cursor-not-allowed"
+                : "bg-blue-700 hover:bg-blue-800 text-white"
+            }`}
           >
-            Submit
+            {isLoading ? "Submitting..." : "Submit"}
           </button>
         </form>
       </div>
