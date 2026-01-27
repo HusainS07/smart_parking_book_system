@@ -1,5 +1,5 @@
 "use client";
-
+// Help Page with FAQ Accordion and Contact Form
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
