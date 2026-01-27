@@ -112,7 +112,7 @@ api/
 │       ├── pending/
 │       │   └── route.js         # Get pending lot approvals
 │       └── reject/
-│       │   └── route.js         # Reject parking lot requests
+│       │   └── route.js         # Reject parking lot requests 
 │       └── topup-requests/
 │           └── route.js         # Handle top-up requests
 ├── auth/

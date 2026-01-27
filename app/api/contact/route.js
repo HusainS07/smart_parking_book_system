@@ -88,11 +88,11 @@ export async function POST(req) {
     const cleanName = name.trim();
     const cleanEmail = email.trim();
 
-    // 🚀 NEW: Call RAG microservice instead of local FAQ matching
+    //  NEW: Call RAG microservice instead of local FAQ matching
     const ragResult = await askRAGService(cleanName, cleanEmail, cleanQuery);
 
     if (ragResult.success && ragResult.matched) {
-      // ✅ RAG service found an answer
+      //  RAG service found an answer
       return new Response(
         JSON.stringify({ 
           answer: ragResult.answer,
@@ -106,7 +106,7 @@ export async function POST(req) {
       );
     }
 
-    // ⚠️ RAG service didn't find a match OR failed — save query for manual follow-up
+    //  RAG service didn't find a match OR failed — save query for manual follow-up
     console.log("💾 Saving query to database for manual follow-up...");
     
     await dbConnect();
@@ -147,9 +147,9 @@ export async function POST(req) {
 }
 
 
-/* ==========================================
-   🔻 OLD CODE - COMMENTED OUT FOR REFERENCE
-   ========================================== */
+/*
+    OLD CODE - commented OUT FOR REFERENCE
+*/
 
 /*
 const faqs = [
