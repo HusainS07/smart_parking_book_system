@@ -398,14 +398,15 @@ const handleUPIBooking = async (slot) => {
         theme: {
           color: "#4B0082",
         },
-        method: {
-          upi: true,
-          card: false,
-          netbanking: false,
-          wallet: false,
-          emi: false,
-          paylater: false,
-        },
+        display: {
+          hide: [
+            { method: "card" },
+            { method: "netbanking" },
+            { method: "wallet" },
+            { method: "emi" },
+            { method: "paylater" }
+          ]
+        }
       };
 
       razorpayInstance = new window.Razorpay(options);
