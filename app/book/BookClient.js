@@ -392,20 +392,9 @@ const handleUPIBooking = async (slot) => {
         prefill: {
           email: session.user.email,
           contact: session.user.phone || "",
-          method: "upi",
-          vpa: "success@razorpay",
         },
         theme: {
           color: "#4B0082",
-        },
-        display: {
-          hide: [
-            { method: "card" },
-            { method: "netbanking" },
-            { method: "wallet" },
-            { method: "emi" },
-            { method: "paylater" }
-          ]
         }
       };
 
