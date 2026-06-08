@@ -392,7 +392,8 @@ const handleUPIBooking = async (slot) => {
         prefill: {
           email: session.user.email,
           contact: session.user.phone || "",
-          method: "card",
+          method: "netbanking",
+          bank: "HDFCB",
         },
         theme: {
           color: "#4B0082",
@@ -930,10 +931,10 @@ const handleUPIBooking = async (slot) => {
                                   strokeLinecap="round"
                                   strokeLinejoin="round"
                                   strokeWidth="2"
-                                  d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+                                  d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
                                 />
                               </svg>
-                              Pay Online (Card)
+                              Pay Online (Netbanking)
                             </>
                           )}
                         </button>
@@ -962,18 +963,6 @@ const handleUPIBooking = async (slot) => {
                           </svg>
                           Cancel
                         </button>
-
-                        <div className="mt-3 p-3 bg-indigo-50 border border-indigo-100 rounded-lg text-xs text-indigo-900 space-y-1">
-                          <p className="font-semibold text-center">💳 Demo Mode: Use Test Card</p>
-                          <div className="flex justify-between items-center bg-white px-2 py-1 rounded border border-indigo-50 font-mono text-[11px]">
-                            <span>Card:</span>
-                            <span className="font-bold text-indigo-700 select-all">4100 2800 0000 1007</span>
-                          </div>
-                          <div className="flex justify-between items-center text-[10px] text-indigo-600 px-1">
-                            <span>Expiry: Any future date (e.g., 12/30)</span>
-                            <span>CVV: 111</span>
-                          </div>
-                        </div>
                       </div>
                     ) : (
                       <button
