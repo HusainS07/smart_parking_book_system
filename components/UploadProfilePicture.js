@@ -29,13 +29,11 @@ export default function UploadProfilePicture({ onUpload }) {
         setUploading(false);
       };
       reader.onerror = () => {
-        console.error('Error reading file');
         alert('Failed to read image.');
         setUploading(false);
       };
       reader.readAsDataURL(file); // Convert to base64
     } catch (error) {
-      console.error('Upload error:', error);
       alert('Failed to process image.');
       setUploading(false);
     }

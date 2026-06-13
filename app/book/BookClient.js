@@ -51,7 +51,6 @@ export default function BookClient({
     const channel = pusher.subscribe("parking-bookings");
 
     channel.bind("booking_created", (data) => {
-      console.log("Client: Received webhook:", data);
       if (data.location === selectedLocation) {
         setSlots((prev) =>
           prev.map((s) =>
@@ -88,15 +87,10 @@ export default function BookClient({
     async function fetchSlots() {
       try {
         setLoading(true);
-        console.log(`Client: Fetching slots for location: ${selectedLocation}`);
         const res = await axios.get(`/api/slots?location=${selectedLocation}`, {
           headers: { "Content-Type": "application/json" },
           withCredentials: true,
         });
-        console.log(
-          "Client: Fetched slots:",
-          JSON.stringify(res.data.slots, null, 2)
-        );
         setSlots(res.data.slots);
         setCurrentHourState(
           res.data.currentHour ||
@@ -110,7 +104,6 @@ export default function BookClient({
         );
         setError(null);
       } catch (err) {
-        console.error("Client: Error fetching slots:", err);
         const errorMsg =
           err.response?.data?.error ||
           `Failed to load slots for ${selectedLocation}. Please try another location or contact support.`;
@@ -130,19 +123,14 @@ export default function BookClient({
     async function fetchWallet() {
       if (session?.user?.email) {
         try {
-          console.log(`Client: Fetching wallet for ${session.user.email}`);
           const res = await axios.get(`/api/wallet/amount`, {
             headers: { "Content-Type": "application/json" },
             withCredentials: true,
           });
           setWallet(res.data.balance);
-          console.log(`Client: Fetched wallet balance: ₹${res.data.balance}`);
           setError(null);
         } catch (err) {
-          console.error("Client: Wallet fetch error:", err);
         }
-      } else {
-        console.log("Client: No session or email found, skipping wallet fetch");
       }
     }
 
@@ -167,13 +155,6 @@ export default function BookClient({
 
     try {
       const bookingDate = formatDate(new Date());
-      console.log("Client: Wallet Booking Payload:", {
-        slotid: slot.slotid,
-        hour: selectedHour,
-        date: bookingDate,
-        email: session.user.email,
-        location: selectedLocation,
-      });
 
       const res = await axios.post(
         "/api/wallet/deduct",
@@ -230,7 +211,6 @@ export default function BookClient({
       setSelectedSlot(null);
       setSelectedHour(null);
     } catch (err) {
-      console.error("Client: Wallet booking error:", err);
       showToast(
         `Booking failed: ${err.response?.data?.error || "Unknown error"}`
       );
@@ -261,13 +241,6 @@ const handleUPIBooking = async (slot) => {
   try {
     const bookingDate = formatDate(new Date());
 
-    console.log("📝 Client: Creating order with minimal data:", {
-      slotid: slot.slotid,
-      amount: slot.amount,
-      date: bookingDate,
-      hour: selectedHour,
-    });
-
     // Step 1: Create order (queues only slotid + date + hour)
     const orderResponse = await axios.post(
       "/api/payments/create-order",
@@ -285,7 +258,6 @@ const handleUPIBooking = async (slot) => {
 
     const { orderId: createdOrderId, amount, currency } = orderResponse.data;
     orderId = createdOrderId;
-    console.log("✅ Client: Order created:", { orderId, amount, currency });
 
     const script = document.createElement("script");
     script.src = "https://checkout.razorpay.com/v1/checkout.js";
@@ -305,8 +277,6 @@ const handleUPIBooking = async (slot) => {
         // ✅ SUCCESS HANDLER
         handler: async (response) => {
           try {
-            console.log("✅ Client: Payment successful:", response);
-
             // Step 2: Book the slot
             await axios.post(
               "/api/slots/book",
@@ -351,7 +321,6 @@ const handleUPIBooking = async (slot) => {
             setSelectedSlot(null);
             setSelectedHour(null);
           } catch (err) {
-            console.error("❌ Client: Booking error after payment:", err);
             showToast(
               `Booking failed: ${err.response?.data?.error || "Unknown error"}`
             );
@@ -363,8 +332,6 @@ const handleUPIBooking = async (slot) => {
         // ✅ MODAL DISMISSED HANDLER (User closes/cancels)
         modal: {
           ondismiss: async () => {
-            console.log("⚠️ Client: Payment modal dismissed/cancelled");
-            
             // Clean up the Redis booking lock
             try {
               await axios.post(
@@ -379,9 +346,7 @@ const handleUPIBooking = async (slot) => {
                   withCredentials: true,
                 }
               );
-              console.log("✅ Client: Booking lock released");
             } catch (cleanupErr) {
-              console.error("❌ Client: Failed to release lock:", cleanupErr);
             }
             
             showToast("Payment cancelled", "info");
@@ -404,8 +369,6 @@ const handleUPIBooking = async (slot) => {
       
       // ✅ PAYMENT FAILED HANDLER
       razorpayInstance.on("payment.failed", async (response) => {
-        console.error("❌ Client: Payment failed:", response.error);
-        
         // Clean up the Redis booking lock
         try {
           await axios.post(
@@ -420,9 +383,7 @@ const handleUPIBooking = async (slot) => {
               withCredentials: true,
             }
           );
-          console.log("✅ Client: Booking lock released after failure");
         } catch (cleanupErr) {
-          console.error("❌ Client: Failed to release lock:", cleanupErr);
         }
         
         showToast(
@@ -435,13 +396,10 @@ const handleUPIBooking = async (slot) => {
     };
 
     script.onerror = () => {
-      console.error("❌ Client: Failed to load Razorpay SDK");
       showToast("Failed to load Razorpay SDK");
       setPaymentLoading(false);
     };
   } catch (err) {
-    console.error("❌ Client: UPI payment error:", err);
-    
     // Clean up if order was created but Razorpay failed to load
     if (orderId) {
       try {
@@ -457,9 +415,7 @@ const handleUPIBooking = async (slot) => {
             withCredentials: true,
           }
         );
-        console.log("✅ Client: Booking lock released after error");
       } catch (cleanupErr) {
-        console.error("❌ Client: Failed to release lock:", cleanupErr);
       }
     }
     
@@ -706,11 +662,6 @@ const handleUPIBooking = async (slot) => {
                       : formatDate(new Date(bh.date)) === today)
                 )
                 .map((bh) => bh.hour);
-              console.log(
-                `Client: Slot ${slot.slotid} bookedHoursToday:`,
-                bookedHoursToday,
-                `currentHour: ${currentHourState}`
-              );
 
               return (
                 <div
@@ -834,11 +785,6 @@ const handleUPIBooking = async (slot) => {
                               const isDisabled =
                                 bookedHoursToday.includes(h) ||
                                 h < currentHourState;
-                              console.log(
-                                `Client: Hour ${h} disabled: ${isDisabled}, booked: ${bookedHoursToday.includes(
-                                  h
-                                )}, past: ${h < currentHourState}`
-                              );
                               return (
                                 <option
                                   key={h}

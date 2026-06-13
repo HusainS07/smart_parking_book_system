@@ -41,7 +41,6 @@ const Page = () => {
         setError('');
       }
     } catch (err) {
-      console.error(err);
       setError('An error occurred. Please try again.');
     }
   };

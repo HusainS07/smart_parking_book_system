@@ -33,7 +33,6 @@ export default function ProfilePage() {
 
   // Error handler
   const handleError = useCallback((err, context) => {
-    console.error(`${context} error:`, err);
     const errorMessage = err.response?.data?.message || err.message || 'An unexpected error occurred';
     setError(`${context}: ${errorMessage}`);
   }, []);

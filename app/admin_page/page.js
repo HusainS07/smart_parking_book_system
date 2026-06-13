@@ -23,7 +23,6 @@ export default function AdminDashboard() {
         setPendingLots(res.data);
         setError(null);
       } catch (err) {
-        console.error('Failed to load pending lots:', err);
         setError(err.response?.data?.error || 'Failed to load pending lots');
       }
     }
@@ -37,7 +36,6 @@ export default function AdminDashboard() {
         setTopUpRequests(res.data);
         setError(null);
       } catch (err) {
-        console.error('Failed to load top-up requests:', err);
         setError(err.response?.data?.error || 'Failed to load top-up requests');
       }
     }
@@ -58,7 +56,6 @@ export default function AdminDashboard() {
       setError(null);
       alert(`Lot approved: ${res.data.message}`);
     } catch (err) {
-      console.error('Failed to approve lot:', err);
       setError(err.response?.data?.error || 'Failed to approve lot');
     }
   };
@@ -73,7 +70,6 @@ export default function AdminDashboard() {
       setError(null);
       alert(`Lot rejected: ${res.data.message}`);
     } catch (err) {
-      console.error('Failed to reject lot:', err);
       setError(err.response?.data?.error || 'Failed to reject lot');
     }
   };
@@ -90,7 +86,6 @@ export default function AdminDashboard() {
         alert(`Top-up request ${action}ed: ${res.data.message}`);
       }
     } catch (err) {
-      console.error('Failed to update top-up request:', err);
       setError(err.response?.data?.error || 'Failed to update top-up request');
     }
   };

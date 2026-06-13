@@ -21,7 +21,6 @@ export default function Wallet() {
         setBalance(balance);
       } catch (err) {
         toast.error('Error fetching wallet');
-        console.error(err);
       } finally {
         setFetching(false);
       }
@@ -43,7 +42,6 @@ export default function Wallet() {
       toast.success('Top-up request sent! Await admin approval.');
       setTopUpAmount('');
     } catch (err) {
-      console.error(err);
       toast.error('Top-up failed');
     } finally {
       setLoading(false);
