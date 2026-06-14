@@ -30,6 +30,8 @@ export default function ProfilePage() {
   const [lotsLoading, setLotsLoading] = useState(false);
   const [updateLoading, setUpdateLoading] = useState(false);
   const [lotSubmitLoading, setLotSubmitLoading] = useState(false);
+  const [hasLoadedBookings, setHasLoadedBookings] = useState(false);
+  const [hasLoadedLots, setHasLoadedLots] = useState(false);
 
   // Error handler
   const handleError = useCallback((err, context) => {
@@ -96,12 +98,13 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!session?.user?.email) return;
 
-    if (activeTab === 'bookings') {
+    if (activeTab === 'bookings' && !hasLoadedBookings) {
       setBookingsLoading(true);
       axios
         .get(`/api/bookings/${encodeURIComponent(session.user.email)}`)
         .then((res) => {
           setBookings(Array.isArray(res.data) ? res.data : []);
+          setHasLoadedBookings(true);
         })
         .catch((err) => {
           handleError(err, 'Failed to load bookings');
@@ -112,12 +115,13 @@ export default function ProfilePage() {
         });
     }
 
-    if (activeTab === 'lots') {
+    if (activeTab === 'lots' && !hasLoadedLots) {
       setLotsLoading(true);
       axios
         .get(`/api/lots?email=${encodeURIComponent(session.user.email)}`)
         .then((res) => {
           setLots(Array.isArray(res.data) ? res.data : []);
+          setHasLoadedLots(true);
         })
         .catch((err) => {
           handleError(err, 'Failed to load parking lots');
@@ -127,7 +131,7 @@ export default function ProfilePage() {
           setLotsLoading(false);
         });
     }
-  }, [activeTab, session, handleError]);
+  }, [activeTab, session, hasLoadedBookings, hasLoadedLots, handleError]);
 
   // Handle input changes in profile form
   const handleInputChange = (e) => {
