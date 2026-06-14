@@ -1,6 +1,4 @@
-import dbConnect from "@/lib/dbConnect";
-import User from "@/models/user";
-import Wallet from "@/models/wallet";
+import { query } from "@/lib/db";
 import { ratelimit } from "@/lib/ratelimiter";
 import bcrypt from "bcryptjs"; // using bcryptjs for Node.js
 
@@ -21,28 +19,34 @@ export async function POST(req) {
       );
     }
 
-    await dbConnect();
     const { email, password } = await req.json();
 
     if (!email || !password) {
       return new Response(JSON.stringify({ message: "Email and password are required" }), { status: 400 });
     }
 
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
+    const existingUser = await query('SELECT id FROM users WHERE email = $1', [email]);
+    if (existingUser.rowCount > 0) {
       return new Response(JSON.stringify({ message: "User already exists" }), { status: 400 });
     }
 
     // Hash the password
-    const salt = await bcrypt.genSalt(10); // 10 rounds of salt
+    const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
     const name = email.split("@")[0];
-    const newUser = new User({ name, email, password: hashedPassword }); // save hashed password
-    await newUser.save();
 
-    const newWallet = new Wallet({ username: name, email, balance: 0 });
-    await newWallet.save();
+    // Create user
+    await query(
+      'INSERT INTO users (name, email, password) VALUES ($1, $2, $3)',
+      [name, email, hashedPassword]
+    );
+
+    // Create wallet
+    await query(
+      'INSERT INTO wallets (email, balance) VALUES ($1, $2)',
+      [email, 0]
+    );
 
     return new Response(JSON.stringify({ message: "User registered successfully and wallet created" }), { status: 201 });
   } catch (error) {

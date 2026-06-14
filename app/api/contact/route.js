@@ -1,11 +1,10 @@
 // app/api/contact/route.js
-// Updated to use RAG microservice API
+// Updated to use RAG microservice API + PostgreSQL
 
-import dbConnect from "@/lib/dbConnect";
-import Help from "@/models/help";
+import { query } from "@/lib/db";
 
 // 🔹 NEW: Call RAG Microservice API
-async function askRAGService(name, email, query) {
+async function askRAGService(name, email, queryText) {
   try {
     console.log("🔄 Calling RAG microservice...");
     
@@ -18,7 +17,7 @@ async function askRAGService(name, email, query) {
       body: JSON.stringify({
         name: name,
         email: email,
-        query: query
+        query: queryText
       }),
       signal: AbortSignal.timeout(30000) // 30 second timeout
     });
@@ -48,7 +47,7 @@ async function askRAGService(name, email, query) {
 }
 
 // 🔹 Input validation
-function validateInput(name, email, query) {
+function validateInput(name, email, queryText) {
   const errors = [];
   
   if (!name || name.trim().length < 2) {
@@ -60,7 +59,7 @@ function validateInput(name, email, query) {
     errors.push("Please provide a valid email address");
   }
   
-  if (!query || query.trim().length < 3) {
+  if (!queryText || queryText.trim().length < 3) {
     errors.push("Query must be at least 3 characters long");
   }
   
@@ -70,10 +69,10 @@ function validateInput(name, email, query) {
 // 🔹 Main API Route handler
 export async function POST(req) {
   try {
-    const { name, email, query } = await req.json();
+    const { name, email, query: userQuery } = await req.json();
 
     // Validate input
-    const validationErrors = validateInput(name, email, query);
+    const validationErrors = validateInput(name, email, userQuery);
     if (validationErrors.length > 0) {
       return new Response(
         JSON.stringify({ 
@@ -84,15 +83,14 @@ export async function POST(req) {
       );
     }
 
-    const cleanQuery = query.trim();
+    const cleanQuery = userQuery.trim();
     const cleanName = name.trim();
     const cleanEmail = email.trim();
 
-    //  NEW: Call RAG microservice instead of local FAQ matching
+    // Call RAG microservice
     const ragResult = await askRAGService(cleanName, cleanEmail, cleanQuery);
 
     if (ragResult.success && ragResult.matched) {
-      //  RAG service found an answer
       return new Response(
         JSON.stringify({ 
           answer: ragResult.answer,
@@ -106,17 +104,13 @@ export async function POST(req) {
       );
     }
 
-    //  RAG service didn't find a match OR failed — save query for manual follow-up
+    // RAG service didn't find a match OR failed — save query for manual follow-up
     console.log("💾 Saving query to database for manual follow-up...");
-    
-    await dbConnect();
-    await new Help({ 
-      name: cleanName, 
-      email: cleanEmail, 
-      query: cleanQuery,
-      timestamp: new Date(),
-      status: 'pending'
-    }).save();
+
+    await query(
+      'INSERT INTO help_tickets (name, email, query) VALUES ($1, $2, $3)',
+      [cleanName, cleanEmail, cleanQuery]
+    );
 
     return new Response(
       JSON.stringify({
@@ -145,151 +139,3 @@ export async function POST(req) {
     );
   }
 }
-
-
-/*
-    OLD CODE - commented OUT FOR REFERENCE only -- DO NOT DELETE YET
-*/
-
-/*
-const faqs = [
-  {
-    id: 1,
-    question: "What is the Smart Parking System?",
-    answer: "Our Smart Parking System helps manage and optimize parking spaces efficiently using real-time tracking and automation.",
-    keywords: ["smart parking", "system", "management", "optimization", "what is", "about"]
-  },
-  {
-    id: 2,
-    question: "How do I reserve a parking spot?",
-    answer: "You can reserve a spot through our website or mobile app. Simply sign in, select a location, and choose an available slot.",
-    keywords: ["reserve", "booking", "book", "app", "website", "slot", "how to", "steps"]
-  },
-  {
-    id: 3,
-    question: "Is online payment available?",
-    answer: "Yes! We offer secure online payment gateways so you can pay easily using UPI, cards, or wallets.",
-    keywords: ["payment", "online", "pay", "UPI", "cards", "wallets", "gateway", "money"]
-  },
-  {
-    id: 4,
-    question: "Can I cancel a booking?",
-    answer: "Absolutely. Go to your bookings section and click cancel. Refund policies apply based on time of cancellation.",
-    keywords: ["cancel", "booking", "refund", "policy", "delete", "remove"]
-  },
-  {
-    id: 5,
-    question: "Is the system available in multiple cities?",
-    answer: "Currently, we operate in selected cities. We're expanding rapidly and will be in your city soon!",
-    keywords: ["cities", "locations", "availability", "expansion", "where", "available"]
-  },
-];
-
-// 🔹 Simple keyword-based matching as primary method
-function findBestMatch(query) {
-  const queryLower = query.toLowerCase();
-  const queryWords = queryLower.split(/\s+/).filter(word => word.length > 2);
-  
-  let bestMatch = { score: 0, faq: null };
-  
-  faqs.forEach(faq => {
-    let score = 0;
-    const totalKeywords = faq.keywords.length;
-    
-    // Check keyword matches
-    faq.keywords.forEach(keyword => {
-      if (queryLower.includes(keyword.toLowerCase())) {
-        score += 2; // Exact keyword match gets high score
-      }
-    });
-    
-    // Check individual word matches
-    queryWords.forEach(word => {
-      faq.keywords.forEach(keyword => {
-        if (keyword.toLowerCase().includes(word) || word.includes(keyword.toLowerCase())) {
-          score += 1; // Partial match gets lower score
-        }
-      });
-      
-      // Also check against question and answer
-      if (faq.question.toLowerCase().includes(word) || faq.answer.toLowerCase().includes(word)) {
-        score += 0.5;
-      }
-    });
-    
-    // Normalize score
-    const normalizedScore = score / (totalKeywords + queryWords.length);
-    
-    if (normalizedScore > bestMatch.score) {
-      bestMatch = { score: normalizedScore, faq };
-    }
-  });
-  
-  return bestMatch;
-}
-
-//  OpenRouter Chat Completion API
-async function getChatCompletion(prompt) {
-  try {
-    // Validate environment variables
-    if (!process.env.OPENROUTER_API_KEY) {
-      throw new Error("OPENROUTER_API_KEY is not set in environment variables");
-    }
-
-    console.log("Sending request to OpenRouter with prompt:", prompt);
-
-    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        "HTTP-Referer": process.env.YOUR_SITE_URL || "https://yourwebsite.com",
-        "X-Title": process.env.YOUR_SITE_NAME || "Smart Parking System",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "tngtech/deepseek-r1t2-chimera:free",
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a helpful customer service assistant for a Smart Parking System. Your goal is to provide a clear, concise, and natural response to the user's question, rephrasing the provided FAQ answer to match the user's query style and intent. Do not mention that the response is based on an FAQ. Keep the tone friendly and professional. Only 2-3 lines are needed for the response.",
-          },
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        max_tokens: 350,
-        temperature: 0.7,
-        top_p: 0.9,
-      }),
-    });
-
-    if (!res.ok) {
-      const errorText = await res.text();
-      console.error("OpenRouter API error:", res.status, errorText);
-      throw new Error(`OpenRouter API error: ${res.status} - ${errorText}`);
-    }
-
-    const data = await res.json();
-    console.log("OpenRouter API response:", JSON.stringify(data, null, 2));
-
-    const generatedText = data.choices?.[0]?.message?.content;
-
-    if (!generatedText) {
-      throw new Error("No valid response content from OpenRouter API");
-    }
-
-    // Clean up the response
-    const cleanedText = generatedText.trim();
-    if (!cleanedText) {
-      throw new Error("Empty response from OpenRouter API");
-    }
-
-    return cleanedText;
-  } catch (error) {
-    console.error("Chat completion error:", error.message);
-    return null; // Fallback to FAQ answer
-  }
-}
-*/

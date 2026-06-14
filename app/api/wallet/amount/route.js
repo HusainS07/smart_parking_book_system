@@ -1,9 +1,8 @@
 // app/api/wallet/amount/route.js
-import dbConnect from '@/lib/dbConnect';
-import Wallet from '@/models/wallet';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { query } from '@/lib/db';
 
 export async function GET(request) {
   try {
@@ -12,12 +11,12 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url);
     const email = session.user.email;
 
-    await dbConnect();
-    const wallet = await Wallet.findOne({ email });
-    return NextResponse.json({ balance: wallet ? wallet.balance : 0 }, { status: 200 });
+    const result = await query('SELECT balance FROM wallets WHERE email = $1', [email]);
+    const balance = result.rowCount > 0 ? parseFloat(result.rows[0].balance) : 0;
+
+    return NextResponse.json({ balance }, { status: 200 });
   } catch (err) {
     console.error('Error fetching wallet:', err);
     return NextResponse.json({ error: 'Internal Server Error', details: err.message }, { status: 500 });

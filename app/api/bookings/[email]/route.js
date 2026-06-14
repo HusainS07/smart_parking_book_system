@@ -1,9 +1,8 @@
 // app/api/bookings/[email]/route.js
-import dbConnect from '@/lib/dbConnect';
-import ParkingSlot from '@/models/parkingslots';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { query } from '@/lib/db';
 
 export async function GET(request, { params }) {
   try {
@@ -18,94 +17,50 @@ export async function GET(request, { params }) {
 
     // Validate email match
     if (emailParam !== sessionEmail) {
-      console.log(' Email mismatch:', { emailParam, sessionEmail });
+      console.log('Email mismatch:', { emailParam, sessionEmail });
       return NextResponse.json({ error: 'Forbidden: Email mismatch' }, { status: 403 });
     }
 
-    await dbConnect();
-    console.log(' Database connected, looking for bookings for:', emailParam);
+    // Query bookings joined with slot info
+    const result = await query(
+      `SELECT
+         b.id AS "bookingId",
+         b.booking_hour AS hour,
+         b.booking_date AS date,
+         b.payment_id AS "paymentId",
+         b.email,
+         ps.slotid AS "slotId",
+         ps.location,
+         ps.amount,
+         ps.is_approved AS "isApproved"
+       FROM bookings b
+       JOIN parking_slots ps ON b.slot_id = ps.id
+       WHERE LOWER(b.email) = $1
+       ORDER BY b.booking_date DESC, b.booking_hour ASC`,
+      [emailParam]
+    );
 
-    // Get all slots first
-    const allSlots = await ParkingSlot.find({}).lean();
-    console.log(` Found ${allSlots.length} total slots in database`);
+    const bookings = result.rows.map(row => ({
+      slotId: row.slotId,
+      location: row.location,
+      amount: parseFloat(row.amount),
+      date: new Date(row.date).toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      }),
+      time: `${row.hour}:00–${row.hour + 1}:00`,
+      hour: row.hour,
+      paymentId: row.paymentId,
+      bookingId: row.bookingId,
+      isApproved: row.isApproved,
+    }));
 
-    // Process each slot for the target email
-    const bookings = [];
-    allSlots.forEach(slot => {
-      // Log all bookings in this slot
-      if (slot.bookedHours && slot.bookedHours.length > 0) {
-        console.log(`\n Slot ${slot.slotid} has bookings:`, 
-          JSON.stringify(slot.bookedHours.map(b => ({
-            email: b.email,
-            date: b.date,
-            hour: b.hour,
-            payment_id: b.payment_id
-          })), null, 2)
-        );
-
-        // Debug: Log slot details
-        console.log('Slot details:', {
-          id: slot._id,
-          slotid: slot.slotid,
-          location: slot.location,
-          amount: slot.amount
-        });
-
-        // Filter bookings for target email
-        const matchingBookings = slot.bookedHours
-          .filter(bh => {
-            const isMatch = bh.email && bh.email.toLowerCase().trim() === emailParam;
-            console.log(`Checking booking:`, {
-              storedEmail: bh.email,
-              matches: isMatch,
-              date: bh.date,
-              hour: bh.hour
-            });
-            return isMatch;
-          })
-          .map(bh => ({
-            slotId: slot.slotid || `S_${slot.location}_${slot._id.toString().substr(-6)}`,
-            location: slot.location,
-            amount: slot.amount,
-            date: new Date(bh.date).toLocaleDateString('en-US', {
-              weekday: 'long',
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric'
-            }),
-            time: `${bh.hour}:00–${bh.hour + 1}:00`,
-            hour: bh.hour,
-            paymentId: bh.payment_id,
-            bookingId: bh._id,
-            isApproved: slot.isApproved
-          }));
-
-        if (matchingBookings.length > 0) {
-          console.log(` Found ${matchingBookings.length} matching bookings in slot ${slot.slotid}`);
-          bookings.push(...matchingBookings);
-        }
-      }
-    });
-
-    // Log final results
-    if (bookings.length === 0) {
-      console.log(' No bookings found for email:', emailParam);
-    } else {
-      console.log(' Final results:', {
-        totalBookings: bookings.length,
-        bookings: bookings.map(b => ({
-          slotId: b.slotId,
-          location: b.location,
-          date: b.date,
-          time: b.time,
-          paymentId: b.paymentId
-        }))
-      });
-    }
-
+    console.log(`Found ${bookings.length} bookings for ${emailParam}`);
     return NextResponse.json(bookings, { status: 200 });
   } catch (err) {
-    console.error(' Error fetching bookings:', err);
+    console.error('Error fetching bookings:', err);
     return NextResponse.json({ error: 'Internal Server Error', details: err.message }, { status: 500 });
   }
 }

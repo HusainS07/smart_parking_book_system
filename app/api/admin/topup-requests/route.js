@@ -1,50 +1,74 @@
 // app/api/admin/topup-requests/route.js
-import dbConnect from "@/lib/dbConnect";
-import TopUpReq from "@/models/TopUpReq";
-import Wallet from "@/models/wallet";
 import { NextResponse } from "next/server";
+import { query } from "@/lib/db";
 
 export async function GET() {
-  await dbConnect();
-  const requests = await TopUpReq.find({ status: "pending" }).populate("walletid");
-  return NextResponse.json(requests);
+  try {
+    const result = await query(
+      `SELECT tr.*, w.email AS wallet_email, w.balance AS wallet_balance
+       FROM topup_requests tr
+       JOIN wallets w ON tr.wallet_id = w.id
+       WHERE tr.status = 'pending'
+       ORDER BY tr.created_at DESC`
+    );
+
+    // Shape to match frontend expectations
+    const requests = result.rows.map(r => ({
+      _id: r.id,
+      walletid: {
+        _id: r.wallet_id,
+        email: r.wallet_email,
+        balance: parseFloat(r.wallet_balance),
+      },
+      username: r.username,
+      amount: parseFloat(r.amount),
+      status: r.status,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+    }));
+
+    return NextResponse.json(requests);
+  } catch (err) {
+    console.error("GET topup-requests error:", err);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
 }
-
-
-
 
 export async function PUT(req) {
   try {
-    await dbConnect();
-
     const { id, action } = await req.json();
     if (!id || !action) {
       return NextResponse.json({ error: "Missing ID or action" }, { status: 400 });
     }
 
-    const request = await TopUpReq.findById(id);
-    if (!request) {
+    // Fetch the request
+    const reqRes = await query('SELECT * FROM topup_requests WHERE id = $1', [id]);
+    if (reqRes.rowCount === 0) {
       return NextResponse.json({ error: "Request not found" }, { status: 404 });
     }
-
-    const wallet = await Wallet.findById(request.walletid);
-    if (!wallet) {
-      return NextResponse.json({ error: "Wallet not found" }, { status: 404 });
-    }
+    const topupReq = reqRes.rows[0];
 
     if (action === "approve") {
-      request.status = "approved";
-      wallet.balance += request.amount;
-      await wallet.save(); // Save wallet first
+      // Add amount to wallet balance
+      await query(
+        'UPDATE wallets SET balance = balance + $1 WHERE id = $2',
+        [topupReq.amount, topupReq.wallet_id]
+      );
+      // Update request status
+      await query(
+        "UPDATE topup_requests SET status = 'approved', updated_at = NOW() WHERE id = $1",
+        [id]
+      );
     } else if (action === "reject") {
-      request.status = "rejected";
+      await query(
+        "UPDATE topup_requests SET status = 'rejected', updated_at = NOW() WHERE id = $1",
+        [id]
+      );
     } else {
       return NextResponse.json({ error: "Invalid action" }, { status: 400 });
     }
 
-    await request.save(); // Save status change
     return NextResponse.json({ success: true });
-
   } catch (err) {
     console.error("PUT error:", err);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

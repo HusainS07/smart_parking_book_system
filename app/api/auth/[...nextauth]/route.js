@@ -2,10 +2,8 @@ import NextAuth from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from 'next-auth/providers/google';
 import GitHubProvider from 'next-auth/providers/github';
-import mongoose from 'mongoose';
-import bcrypt from 'bcryptjs'; // Import bcrypt
-import User from '@/models/user';
-import Wallet from '@/models/wallet';
+import bcrypt from 'bcryptjs';
+import { query } from '@/lib/db';
 
 export const authOptions = {
   providers: [
@@ -26,10 +24,10 @@ export const authOptions = {
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
-        await mongoose.connect(process.env.MONGODB_URI);
-        console.log('🔐 Login attempt:', credentials);
+        console.log('🔐 Login attempt:', credentials.email);
 
-        const user = await User.findOne({ email: credentials.email });
+        const result = await query('SELECT * FROM users WHERE email = $1', [credentials.email]);
+        const user = result.rows[0];
 
         if (!user) {
           console.log('❌ User not found');
@@ -45,7 +43,7 @@ export const authOptions = {
 
         console.log('✅ Authorized');
         return {
-          id: user._id.toString(),
+          id: user.id,
           name: user.name,
           email: user.email,
           role: user.role || 'user',
@@ -79,24 +77,22 @@ export const authOptions = {
     },
 
     async signIn({ user }) {
-      await mongoose.connect(process.env.MONGODB_URI);
+      const existing = await query('SELECT id FROM users WHERE email = $1', [user.email]);
 
-      const existing = await User.findOne({ email: user.email });
-
-      if (!existing) {
+      if (existing.rowCount === 0) {
         const name = user.name || user.email.split('@')[0];
-        const newUser = await User.create({
-          email: user.email,
-          name,
-          password: null, // OAuth users don't need a password
-          role: 'user',
-        });
 
-        await Wallet.create({
-          username: name,
-          email: user.email,
-          balance: 0,
-        });
+        // Create user
+        await query(
+          'INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4)',
+          [name, user.email, null, 'user']
+        );
+
+        // Create wallet
+        await query(
+          'INSERT INTO wallets (email, balance) VALUES ($1, $2)',
+          [user.email, 0]
+        );
       }
 
       return true;

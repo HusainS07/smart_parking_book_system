@@ -1,9 +1,8 @@
 // app/api/slots/book/route.js
-import dbConnect from "@/lib/dbConnect";
-import ParkingSlot from "@/models/parkingslots";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { query } from "@/lib/db";
 import { triggerBookingWebhook } from "../../webhooks/bookings/route";
 
 export async function POST(req) {
@@ -18,25 +17,11 @@ export async function POST(req) {
     const email = session.user.email;
 
     console.log("Received booking payload:", {
-      slotid,
-      hour,
-      date,
-      payment_id,
-      email,
-      location,
-      dateType: typeof date,
-      rawDate: JSON.stringify(date),
+      slotid, hour, date, payment_id, email, location,
     });
 
     if (!slotid || hour === undefined || !date || !location) {
-      console.error("❌ Missing data:", {
-        slotid,
-        hour,
-        date,
-        payment_id,
-        email,
-        location,
-      });
+      console.error("❌ Missing data:", { slotid, hour, date, payment_id, email, location });
       return NextResponse.json(
         { error: "Missing slotid, hour, date, or location" },
         { status: 400 }
@@ -53,72 +38,57 @@ export async function POST(req) {
 
     const dateString = String(date);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-      console.error(
-        "❌ Invalid date format:",
-        dateString,
-        "Type:",
-        typeof date,
-        "Raw:",
-        JSON.stringify(date)
-      );
+      console.error("❌ Invalid date format:", dateString);
       return NextResponse.json(
         { error: "Invalid date format (use YYYY-MM-DD)", received: dateString },
         { status: 400 }
       );
     }
 
-    await dbConnect();
-
-    const slot = await ParkingSlot.findOne({ slotid });
-    if (!slot) {
+    // 1. Resolve slotid → UUID
+    const slotRes = await query('SELECT id FROM parking_slots WHERE slotid = $1', [slotid]);
+    if (slotRes.rowCount === 0) {
       console.error("❌ Slot not found:", slotid);
       return NextResponse.json({ error: "Slot not found" }, { status: 404 });
     }
+    const slotUuid = slotRes.rows[0].id;
 
-    const bookedHoursToday = (slot.bookedHours || []).filter(
-      (bh) =>
-        bh.date &&
-        bh.date.toISOString &&
-        bh.date.toISOString().split("T")[0] === dateString
+    // 2. Check if already booked (unique index will also catch this)
+    const existingBooking = await query(
+      'SELECT id FROM bookings WHERE slot_id = $1 AND booking_date = $2::date AND booking_hour = $3',
+      [slotUuid, dateString, hour]
     );
-    if (bookedHoursToday.some((bh) => bh.hour === hour)) {
+    if (existingBooking.rowCount > 0) {
       console.error("❌ Hour already booked:", hour, "on", dateString);
       return NextResponse.json(
-        {
-          error: `Hour ${hour}:00–${
-            hour + 1
-          }:00 already booked on ${dateString}`,
-        },
+        { error: `Hour ${hour}:00–${hour + 1}:00 already booked on ${dateString}` },
         { status: 400 }
       );
     }
 
-    slot.bookedHours.push({
-      hour,
-      email,
-      date: new Date(dateString),
-      payment_id,
-    });
-    slot.paymentid = payment_id || slot.paymentid;
-    await slot.save();
+    // 3. Insert confirmed booking
+    await query(
+      `INSERT INTO bookings (slot_id, booking_hour, email, booking_date, payment_id)
+       VALUES ($1, $2, $3, $4::date, $5)`,
+      [slotUuid, hour, email, dateString, payment_id || null]
+    );
 
-    // Trigger webhook for real-time updates
+    // 4. Delete the temporary lock (it served its purpose)
+    await query(
+      'DELETE FROM temporary_locks WHERE slot_id = $1 AND booking_date = $2::date AND booking_hour = $3',
+      [slotUuid, dateString, hour]
+    );
+
+    // 5. Trigger webhook for real-time updates
     await triggerBookingWebhook({
-      slotid,
-      hour,
-      email,
-      date: dateString,
-      location,
+      slotid, hour, email, date: dateString, location,
     });
 
     console.log(
-      `✅ Slot ${slotid} booked at ${hour}:00–${
-        hour + 1
-      }:00 on ${dateString} by ${email} with payment_id: ${
-        payment_id || "none"
-      }`
+      `✅ Slot ${slotid} booked at ${hour}:00–${hour + 1}:00 on ${dateString} by ${email} with payment_id: ${payment_id || "none"}`
     );
-    return NextResponse.json({ success: true, slot }, { status: 200 });
+
+    return NextResponse.json({ success: true }, { status: 200 });
   } catch (err) {
     console.error("❌ Internal server error:", err.message, err.stack);
     return NextResponse.json(

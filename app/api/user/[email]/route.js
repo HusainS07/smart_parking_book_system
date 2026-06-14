@@ -1,37 +1,20 @@
 // app/api/user/[email]/route.js
-
-import dbConnect from '@/lib/dbConnect'; // Utility to connect to MongoDB
-import User from '@/models/user';        // Mongoose model for the User collection
-import { NextResponse } from 'next/server'; // Helper for sending HTTP responses in Next.js
+import { NextResponse } from 'next/server';
+import { query } from '@/lib/db';
 
 /* --------------------------------------------------------------------------
    GET /api/user/[email]
    Fetches user details based on the provided email parameter.
 -------------------------------------------------------------------------- */
 export async function GET(request, { params }) {
- 
   console.log('Raw params:', params);
-  console.log('params.email:', params.email);
 
   try {
-    // Connect to the MongoDB database
-    await dbConnect();
-
-    // Decode email (handles URL-encoded characters such as %40 for "@")
     const email = decodeURIComponent(params.email);
 
-    // Try to find a user with an exact email match
-    const userExact = await User.findOne({ email });
+    const result = await query('SELECT * FROM users WHERE LOWER(email) = LOWER($1)', [email]);
+    const user = result.rows[0];
 
-    // If not found, perform a case-insensitive match using regex
-    const userCaseInsensitive = await User.findOne({
-      email: { $regex: new RegExp(`^${email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
-    });
-
-    // Use whichever match succeeds
-    const user = userExact || userCaseInsensitive;
-
-    // If no user is found, return 404
     if (!user) {
       return NextResponse.json(
         { message: 'User not found', searchedEmail: email },
@@ -39,11 +22,28 @@ export async function GET(request, { params }) {
       );
     }
 
-    // Return user data as JSON
-    return NextResponse.json(user, { status: 200 });
+    // Shape response to match frontend expectations (camelCase)
+    const shaped = {
+      _id: user.id,
+      name: user.name,
+      email: user.email,
+      password: user.password,
+      role: user.role,
+      image: user.image,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      gender: user.gender,
+      phone: user.phone,
+      dob: user.dob,
+      bloodGroup: user.blood_group,
+      fatherName: user.father_name,
+      age: user.age,
+      address: user.address,
+      updatedAt: user.updated_at,
+    };
 
+    return NextResponse.json(shaped, { status: 200 });
   } catch (err) {
-    // Handle unexpected server or database errors
     console.error('GET error:', err);
     return NextResponse.json(
       { message: 'Server error', error: err.message },
@@ -58,34 +58,25 @@ export async function GET(request, { params }) {
 -------------------------------------------------------------------------- */
 export async function PUT(request, { params }) {
   try {
-    // Connect to the MongoDB database
-    await dbConnect();
-
-    // Decode the email parameter
     const email = decodeURIComponent(params.email);
 
-    // Check if the user exists before attempting an update
-    const existingUser = await User.findOne({ email });
-    if (!existingUser) {
+    // Check if the user exists
+    const existing = await query('SELECT id FROM users WHERE email = $1', [email]);
+    if (existing.rowCount === 0) {
       return NextResponse.json({ message: 'User not found' }, { status: 404 });
     }
 
-    // Parse the incoming JSON request body
     const body = await request.json();
 
     // Validate base64 image if provided
     if (body.image) {
       const base64Regex = /^data:image\/(jpeg|png|gif);base64,[A-Za-z0-9+/=]+$/;
-
-      // Check that the image is in a valid format
       if (!base64Regex.test(body.image)) {
         return NextResponse.json(
           { message: 'Invalid image format. Must be a valid base64 image (JPEG, PNG, GIF).' },
           { status: 400 }
         );
       }
-
-      // Optionally check image size (base64 string length, roughly 5 MB)
       if (body.image.length > 7 * 1024 * 1024) {
         return NextResponse.json(
           { message: 'Image size exceeds 5MB limit.' },
@@ -94,38 +85,68 @@ export async function PUT(request, { params }) {
       }
     }
 
-    // Prepare updated fields dynamically
-    const updateData = {};
-    if (body.image) updateData.image = body.image;
-    if (body.name) updateData.name = body.name;
-    if (body.phone) updateData.phone = body.phone;
-    if (body.firstName) updateData.firstName = body.firstName;
-    if (body.lastName) updateData.lastName = body.lastName;
-    if (body.gender) updateData.gender = body.gender;
-    if (body.dob) updateData.dob = body.dob;
-    if (body.bloodGroup) updateData.bloodGroup = body.bloodGroup;
-    if (body.fatherName) updateData.fatherName = body.fatherName;
-    if (body.age) updateData.age = body.age;
-    if (body.address) updateData.address = body.address;
+    // Build dynamic SET clause
+    const fields = [];
+    const values = [];
+    let idx = 1;
 
-    // Update the "updatedAt" timestamp
-    updateData.updatedAt = Date.now();
+    const fieldMap = {
+      image: 'image',
+      name: 'name',
+      phone: 'phone',
+      firstName: 'first_name',
+      lastName: 'last_name',
+      gender: 'gender',
+      dob: 'dob',
+      bloodGroup: 'blood_group',
+      fatherName: 'father_name',
+      age: 'age',
+      address: 'address',
+    };
 
-    // Perform the actual update and return the new document
-    const updatedUser = await User.findOneAndUpdate(
-      { email },
-      updateData,
-      {
-        new: true,          // Return the updated document
-        runValidators: true // Apply Mongoose schema validations
+    for (const [bodyKey, dbCol] of Object.entries(fieldMap)) {
+      if (body[bodyKey] !== undefined) {
+        fields.push(`${dbCol} = $${idx}`);
+        values.push(body[bodyKey]);
+        idx++;
       }
-    );
+    }
 
-    // Return the updated user data
-    return NextResponse.json(updatedUser, { status: 200 });
+    // Always update updated_at
+    fields.push(`updated_at = NOW()`);
 
+    if (fields.length === 1) {
+      // Only updated_at, nothing else to update
+      return NextResponse.json({ message: 'No fields to update' }, { status: 400 });
+    }
+
+    values.push(email); // for WHERE clause
+
+    const updateQuery = `UPDATE users SET ${fields.join(', ')} WHERE email = $${idx} RETURNING *`;
+    const result = await query(updateQuery, values);
+    const updatedUser = result.rows[0];
+
+    // Shape response
+    const shaped = {
+      _id: updatedUser.id,
+      name: updatedUser.name,
+      email: updatedUser.email,
+      role: updatedUser.role,
+      image: updatedUser.image,
+      firstName: updatedUser.first_name,
+      lastName: updatedUser.last_name,
+      gender: updatedUser.gender,
+      phone: updatedUser.phone,
+      dob: updatedUser.dob,
+      bloodGroup: updatedUser.blood_group,
+      fatherName: updatedUser.father_name,
+      age: updatedUser.age,
+      address: updatedUser.address,
+      updatedAt: updatedUser.updated_at,
+    };
+
+    return NextResponse.json(shaped, { status: 200 });
   } catch (err) {
-    // Handle any errors that occur during the update process
     console.error('PUT error:', err);
     return NextResponse.json(
       { message: 'Update failed', error: err.message },

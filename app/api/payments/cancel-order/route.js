@@ -1,10 +1,8 @@
 // app/api/payments/cancel-order/route.js
-// Cancel order endpoint - matches your create-order auth pattern
-
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import getPaymentQueue from '@/lib/paymentQueue';
+import { query } from '@/lib/db';
 
 export async function POST(req) {
   try {
@@ -25,49 +23,41 @@ export async function POST(req) {
       );
     }
 
-    // Validate date format
     const dateString = String(date);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-      console.error('❌ Invalid date format:', dateString);
-      return NextResponse.json({ 
-        error: 'Invalid date format (use YYYY-MM-DD)' 
-      }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid date format (use YYYY-MM-DD)' }, { status: 400 });
     }
 
-    // Validate hour
     if (!Number.isInteger(hour) || hour < 0 || hour > 23) {
-      console.error('❌ Invalid hour:', hour);
-      return NextResponse.json({ 
-        error: 'Invalid hour (must be 0–23)' 
-      }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid hour (must be 0–23)' }, { status: 400 });
     }
 
-    console.log('🗑️ API: Cancelling order:', { 
-      slotid, 
-      date: dateString, 
-      hour, 
-      email: session.user.email 
-    });
+    console.log('🗑️ API: Cancelling order:', { slotid, date: dateString, hour, email: session.user.email });
 
-    const queue = getPaymentQueue();
-    
-    // Remove from active orders set (releases the lock)
-    await queue.completePayment(slotid, dateString, hour);
-    
+    // Resolve slotid → UUID
+    const slotRes = await query('SELECT id FROM parking_slots WHERE slotid = $1', [slotid]);
+    if (slotRes.rowCount === 0) {
+      return NextResponse.json({ error: 'Slot not found' }, { status: 404 });
+    }
+    const slotUuid = slotRes.rows[0].id;
+
+    // Delete the temporary lock (releases the checkout hold)
+    await query(
+      'DELETE FROM temporary_locks WHERE slot_id = $1 AND booking_date = $2::date AND booking_hour = $3',
+      [slotUuid, dateString, hour]
+    );
+
     console.log('✅ API: Order cancelled and lock released');
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: true,
-      message: 'Order cancelled successfully' 
+      message: 'Order cancelled successfully'
     }, { status: 200 });
 
   } catch (error) {
     console.error('❌ API: Cancel order error:', error);
     return NextResponse.json(
-      { 
-        error: 'Failed to cancel order',
-        details: error.message 
-      },
+      { error: 'Failed to cancel order', details: error.message },
       { status: 500 }
     );
   }
