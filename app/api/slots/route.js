@@ -15,7 +15,7 @@ export async function GET(req) {
     const slotsResult = await query(
       `SELECT
          ps.id, ps.slotid, ps.amount, ps.allotted, ps.location,
-         ps.is_approved AS "isApproved", ps.lot_id,
+         ps.is_approved AS "isApproved", ps.lot_id, ps.created_at AS "createdAt",
          pl.lot_name AS "lotName", pl.address, pl.city
        FROM parking_slots ps
        LEFT JOIN parking_lots pl ON ps.lot_id = pl.id
@@ -48,6 +48,8 @@ export async function GET(req) {
       alloted: s.allotted,
       location: s.location,
       isApproved: s.isApproved,
+      createdAt: s.createdAt,
+      createdat: s.createdAt,
       lotId: s.lot_id ? { _id: s.lot_id, lotName: s.lotName, address: s.address, city: s.city } : null,
       bookedHours: (bookingsMap[s.id] || []).map(b => ({
         hour: b.hour,

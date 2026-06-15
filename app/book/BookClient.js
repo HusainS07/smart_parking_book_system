@@ -755,7 +755,9 @@ const handleUPIBooking = async (slot) => {
                             Created
                           </p>
                           <p className="font-medium text-sm">
-                            {new Date(slot.createdat).toLocaleDateString()}
+                            {slot.createdat && !isNaN(Date.parse(slot.createdat))
+                              ? new Date(slot.createdat).toLocaleDateString()
+                              : 'N/A'}
                           </p>
                         </div>
                       </div>
