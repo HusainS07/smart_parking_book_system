@@ -599,11 +599,11 @@ export default function ProfilePage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                 {[
                   { name: 'lotName', label: 'Lot Name', type: 'text', required: true },
-                  { name: 'city', label: 'City', type: 'text', required: true },
+                  { name: 'city', label: 'City', type: 'select', options: ['', 'mumbai', 'delhi', 'bangalore', 'pune'], required: true },
                   { name: 'address', label: 'Address', type: 'textarea', required: true },
                   { name: 'totalSpots', label: 'Total Spots', type: 'number', min: 1, required: true },
                   { name: 'pricePerHour', label: 'Price Per Hour (₹)', type: 'number', step: '0.01', min: 0, required: true },
-                ].map(({ name, label, type, min, step, required }) => (
+                ].map(({ name, label, type, min, step, required, options }) => (
                   <div key={name} className={name === 'address' ? 'col-span-2' : ''}>
                     <label htmlFor={name} className="block text-sm font-medium text-gray-700 mb-1">
                       {label} {required && <span className="text-red-600">*</span>}
@@ -620,6 +620,22 @@ export default function ProfilePage() {
                         required={required}
                         aria-label={label}
                       />
+                    ) : type === 'select' ? (
+                      <select
+                        id={name}
+                        name={name}
+                        value={lotForm[name]}
+                        onChange={handleLotFormChange}
+                        className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 border-gray-300 transition duration-150 cursor-pointer"
+                        required={required}
+                        aria-label={label}
+                      >
+                        {options.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt ? opt.charAt(0).toUpperCase() + opt.slice(1) : `Select ${label}`}
+                          </option>
+                        ))}
+                      </select>
                     ) : (
                       <input
                         id={name}
