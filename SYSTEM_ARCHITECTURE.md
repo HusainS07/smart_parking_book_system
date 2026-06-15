@@ -145,16 +145,33 @@ Unlike traditional Redis which keeps long-running TCP sockets open (which fails 
 
 ---
 
-## 4. 🐘 PostgreSQL ACID Transaction Locking
+## 4. 🐘 PostgreSQL Concurrency & Locking Mechanics
 
-In the previous MongoDB architecture, race conditions on booking conflicts were resolved using external distributed locking queues. In the PostgreSQL architecture, the system leverages native relational transactions and ACID compliance.
+Your system uses a **two-phase locking strategy** to guarantee that slots are held during checkout and successfully booked without double bookings. 
 
-When a user submits `/api/slots/book`, the database execution is wrapped in a strict transaction blocks:
+---
+
+### Phase A: The 5-Minute Checkout Hold (Persistent DB Table)
+When a user clicks "Book" and is redirected to the Razorpay widget, we need to temporarily reserve the slot for **5 minutes** so no one else can purchase it.
+
+* **Why we do NOT use raw in-memory locks here:**
+  If we used a database transaction block (`BEGIN` ... `FOR UPDATE`) and kept it open for 5 minutes waiting for the user to type their card details, we would hold a PostgreSQL connection open. This would quickly starve the server's connection pool, block all other database queries, and crash the website under load.
+* **The Solution:** 
+  We write a short-lived row to the `temporary_locks` table containing a `booking_date`, `booking_hour`, and an `expires_at` timestamp set to `now() + interval '5 minutes'`.
+  * A database unique constraint on `(slot_id, booking_date, booking_hour)` ensures that only one checkout hold can exist at a time.
+  * An automated background check / cleanup query purges expired locks regularly.
+
+---
+
+### Phase B: Instantaneous Row-Level Locking (`FOR UPDATE` in shared RAM)
+Once the payment succeeds, the application executes the booking insertion. This query is completed in **milliseconds** and uses PostgreSQL's native transaction block and **in-memory row-level locks**.
+
+When a user submits `/api/slots/book`, the database execution is wrapped in a strict transaction:
 
 ```sql
 BEGIN;
 
--- 1. Check if the slot and hour are already booked, locking the row for check
+-- 1. Check if the slot and hour are already booked, locking the row in PG shared memory
 SELECT id 
 FROM bookings 
 WHERE slot_id = $1 AND booking_date = $2::date AND booking_hour = $3 
@@ -164,16 +181,16 @@ FOR UPDATE;
 INSERT INTO bookings (slot_id, booking_hour, email, booking_date, payment_id)
 VALUES ($1, $2, $3, $4::date, $5);
 
--- 3. Delete the temporary lock holding the reservation
+-- 3. Delete the temporary checkout hold row
 DELETE FROM temporary_locks 
 WHERE slot_id = $1 AND booking_date = $2::date AND booking_hour = $3;
 
 COMMIT;
 ```
 
-### 🔒 Key Safeguards:
-* **`FOR UPDATE` / Relational Isolation:** Locks the record target from reading/writing by any concurrent database transaction until the outer transaction finishes.
-* **Double Booking Prevention:** If two users click "Book" on the exact same hour slot simultaneously, one transaction commits first, causing the second to fail validation and rollback safely, returning an error to the user without corrupting the state.
+### 🔒 Key Safeguards in Phase B:
+* **`FOR UPDATE` (In-Memory Locking):** This locks the matching rows in PostgreSQL's shared memory (RAM). If two checkout webhooks hit the server at the exact same millisecond, the first query blocks the second until the first transaction commits.
+* **Double Booking Prevention:** Once the first transaction commits, the second transaction sees the slot is already booked and fails validation, rolling back cleanly without corrupting database integrity.
 
 ---
 
