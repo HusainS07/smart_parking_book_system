@@ -1,7 +1,5 @@
-// app/api/contact/route.js
-// Updated to use RAG microservice API + PostgreSQL
-
 import { query } from "@/lib/db";
+import { ratelimit } from "@/lib/ratelimiter";
 
 // 🔹 NEW: Call RAG Microservice API
 async function askRAGService(name, email, queryText) {
@@ -61,6 +59,8 @@ function validateInput(name, email, queryText) {
   
   if (!queryText || queryText.trim().length < 3) {
     errors.push("Query must be at least 3 characters long");
+  } else if (queryText.trim().length > 300) {
+    errors.push("Query must be 300 characters or less");
   }
   
   return errors;
@@ -69,6 +69,22 @@ function validateInput(name, email, queryText) {
 // 🔹 Main API Route handler
 export async function POST(req) {
   try {
+    const ip = req.headers.get("x-forwarded-for") || "unknown";
+
+    // Rate limit contact/RAG queries: 5 attempts per 15 minutes (900s)
+    const allowed = await ratelimit({
+      key: `contact_ratelimit:${ip}`,
+      limit: 5,
+      window_in_seconds: 900
+    });
+
+    if (!allowed) {
+      return new Response(
+        JSON.stringify({ error: "Too many contact/support queries. Please try again later." }),
+        { status: 429, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
     const { name, email, query: userQuery } = await req.json();
 
     // Validate input

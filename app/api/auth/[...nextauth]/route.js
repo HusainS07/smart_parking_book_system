@@ -24,24 +24,21 @@ export const authOptions = {
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
-        console.log('🔐 Login attempt:', credentials.email);
 
         const result = await query('SELECT * FROM users WHERE email = $1', [credentials.email]);
         const user = result.rows[0];
 
         if (!user) {
-          console.log('❌ User not found');
           throw new Error('Invalid email or password');
         }
 
         // Compare hashed password
         const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
         if (!isPasswordValid) {
-          console.log('❌ Password mismatch');
           throw new Error('Invalid email or password');
         }
 
-        console.log('✅ Authorized');
+
         return {
           id: user.id,
           name: user.name,

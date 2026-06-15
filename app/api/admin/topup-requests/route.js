@@ -1,9 +1,15 @@
 // app/api/admin/topup-requests/route.js
 import { NextResponse } from "next/server";
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { query } from "@/lib/db";
 
 export async function GET() {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || session.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Unauthorized: Admin access required' }, { status: 401 });
+    }
     const result = await query(
       `SELECT tr.*, w.email AS wallet_email, w.balance AS wallet_balance
        FROM topup_requests tr
@@ -36,6 +42,11 @@ export async function GET() {
 
 export async function PUT(req) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || session.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Unauthorized: Admin access required' }, { status: 401 });
+    }
+
     const { id, action } = await req.json();
     if (!id || !action) {
       return NextResponse.json({ error: "Missing ID or action" }, { status: 400 });

@@ -1,5 +1,7 @@
 // app/api/user/[email]/route.js
 import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { query } from '@/lib/db';
 
 /* --------------------------------------------------------------------------
@@ -7,10 +9,18 @@ import { query } from '@/lib/db';
    Fetches user details based on the provided email parameter.
 -------------------------------------------------------------------------- */
 export async function GET(request, { params }) {
-  console.log('Raw params:', params);
-
   try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const email = decodeURIComponent(params.email);
+
+    // Users can only access their own profile
+    if (session.user.email.toLowerCase() !== email.toLowerCase()) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     const result = await query('SELECT * FROM users WHERE LOWER(email) = LOWER($1)', [email]);
     const user = result.rows[0];
@@ -23,11 +33,11 @@ export async function GET(request, { params }) {
     }
 
     // Shape response to match frontend expectations (camelCase)
+    // NOTE: password is deliberately excluded — never expose hashes via API
     const shaped = {
       _id: user.id,
       name: user.name,
       email: user.email,
-      password: user.password,
       role: user.role,
       image: user.image,
       firstName: user.first_name,
@@ -58,7 +68,17 @@ export async function GET(request, { params }) {
 -------------------------------------------------------------------------- */
 export async function PUT(request, { params }) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const email = decodeURIComponent(params.email);
+
+    // Users can only update their own profile
+    if (session.user.email.toLowerCase() !== email.toLowerCase()) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     // Check if the user exists
     const existing = await query('SELECT id FROM users WHERE email = $1', [email]);
