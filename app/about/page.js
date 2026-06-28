@@ -1,14 +1,11 @@
-'use client';
-import Head from 'next/head';
+export const metadata = {
+  title: 'About Us | SmartPark',
+  description: 'Learn about the vision and the founder of SmartPark',
+};
 
 export default function AboutUs() {
   return (
     <>
-      <Head>
-        <title>About Us | SmartPark</title>
-        <meta name="description" content="Learn about the vision and the founder of SmartPark" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      </Head>
 
       <section className="pt-24 px-6 max-w-5xl mx-auto text-white">
         <div className="bg-gradient-to-b from-[#0c4a6e] to-[#01203c] p-10 rounded-3xl shadow-lg">

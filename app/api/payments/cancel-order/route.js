@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { query } from '@/lib/db';
+import redis from '@/lib/redis';
 
 export async function POST(req) {
   try {
@@ -41,7 +42,18 @@ export async function POST(req) {
     }
     const slotUuid = slotRes.rows[0].id;
 
-    // Delete the temporary lock (releases the checkout hold)
+    // 1. Release Redis lock
+    if (redis) {
+      try {
+        const lockKey = `lock:${slotUuid}:${dateString}:${hour}`;
+        await redis.del(lockKey);
+        console.log(`[Redis Lock Release] Released lock: ${lockKey}`);
+      } catch (redisErr) {
+        console.error('Redis lock release failed:', redisErr);
+      }
+    }
+
+    // 2. Release PostgreSQL lock (database fallback check)
     await query(
       'DELETE FROM temporary_locks WHERE slot_id = $1 AND booking_date = $2::date AND booking_hour = $3',
       [slotUuid, dateString, hour]

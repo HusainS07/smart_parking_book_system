@@ -1,6 +1,7 @@
 // app/api/slots/route.js
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import redis from '@/lib/redis';
 
 export async function GET(req) {
   try {
@@ -11,37 +12,50 @@ export async function GET(req) {
       return NextResponse.json({ error: 'Missing location parameter' }, { status: 400 });
     }
 
-    // Fetch approved slots with their lot info via JOIN
-    const slotsResult = await query(
-      `SELECT
-         ps.id, ps.slotid, ps.amount, ps.allotted, ps.location,
-         ps.is_approved AS "isApproved", ps.lot_id, ps.created_at AS "createdAt",
-         pl.lot_name AS "lotName", pl.address, pl.city
-       FROM parking_slots ps
-       LEFT JOIN parking_lots pl ON ps.lot_id = pl.id
-       WHERE LOWER(ps.location) = $1 AND ps.is_approved = true`,
-      [location]
-    );
+    const cacheKey = `slots:static:${location}`;
+    let slotsData = null;
 
-    // Fetch all bookings for these slots
-    const slotIds = slotsResult.rows.map(s => s.id);
-    let bookingsMap = {};
-
-    if (slotIds.length > 0) {
-      const bookingsResult = await query(
-        `SELECT slot_id, booking_hour AS hour, email, booking_date AS date, payment_id
-         FROM bookings
-         WHERE slot_id = ANY($1::uuid[])`,
-        [slotIds]
-      );
-      bookingsResult.rows.forEach(b => {
-        if (!bookingsMap[b.slot_id]) bookingsMap[b.slot_id] = [];
-        bookingsMap[b.slot_id].push(b);
-      });
+    // 1. Try to get static slots layout from Redis
+    if (redis) {
+      try {
+        const cached = await redis.get(cacheKey);
+        if (cached) {
+          slotsData = typeof cached === 'string' ? JSON.parse(cached) : cached;
+          console.log(`[Redis Hit] Retrieved static slots for location: ${location}`);
+        }
+      } catch (redisErr) {
+        console.error('Redis read error for slots layout:', redisErr);
+      }
     }
 
-    // Shape response to match frontend expectations
-    const slots = slotsResult.rows.map(s => ({
+    // 2. Fetch from DB if not cached (or if Redis is offline)
+    if (!slotsData) {
+      console.log(`[Redis Miss] Fetching static slots from database for location: ${location}`);
+      const slotsResult = await query(
+        `SELECT
+           ps.id, ps.slotid, ps.amount, ps.allotted, ps.location,
+           ps.is_approved AS "isApproved", ps.lot_id, ps.created_at AS "createdAt",
+           pl.lot_name AS "lotName", pl.address, pl.city
+         FROM parking_slots ps
+         LEFT JOIN parking_lots pl ON ps.lot_id = pl.id
+         WHERE LOWER(ps.location) = $1 AND ps.is_approved = true`,
+        [location]
+      );
+      slotsData = slotsResult.rows;
+
+      // Cache layout in Redis for 24 hours
+      if (redis && slotsData.length > 0) {
+        try {
+          await redis.set(cacheKey, JSON.stringify(slotsData), { ex: 86400 });
+          console.log(`[Redis Write] Cached slots layout for location: ${location}`);
+        } catch (redisErr) {
+          console.error('Redis write error for slots layout:', redisErr);
+        }
+      }
+    }
+
+    // Shape response matching frontend expectations but returning empty bookedHours for landing page
+    const slots = slotsData.map(s => ({
       _id: s.id,
       slotid: s.slotid,
       amount: parseFloat(s.amount),
@@ -51,17 +65,12 @@ export async function GET(req) {
       createdAt: s.createdAt,
       createdat: s.createdAt,
       lotId: s.lot_id ? { _id: s.lot_id, lotName: s.lotName, address: s.address, city: s.city } : null,
-      bookedHours: (bookingsMap[s.id] || []).map(b => ({
-        hour: b.hour,
-        email: b.email,
-        date: b.date,
-        payment_id: b.payment_id,
-      })),
+      bookedHours: [], // Availability is now fetched per-slot on detail page
     }));
 
     const currentHour = parseInt(new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour: 'numeric', hour12: false }));
 
-    console.log(`Fetched ${slots.length} slots for location: ${location}`);
+    console.log(`Fetched ${slots.length} static slots for location: ${location}`);
     return NextResponse.json({ slots, currentHour }, { status: 200 });
   } catch (err) {
     console.error('Error fetching slots:', err.message);

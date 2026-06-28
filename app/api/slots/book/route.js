@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { query } from "@/lib/db";
 import { triggerBookingWebhook } from "../../webhooks/bookings/route";
+import redis from "@/lib/redis";
 
 export async function POST(req) {
   try {
@@ -73,13 +74,28 @@ export async function POST(req) {
       [slotUuid, hour, email, dateString, payment_id || null]
     );
 
-    // 4. Delete the temporary lock (it served its purpose)
+    // 4. Update Redis booking state and release checkout lock
+    if (redis) {
+      try {
+        const bookedKey = `booked:${slotUuid}:${dateString}`;
+        const lockKey = `lock:${slotUuid}:${dateString}:${hour}`;
+        
+        await redis.sadd(bookedKey, hour);
+        await redis.expire(bookedKey, 86400); // 24 hours TTL
+        await redis.del(lockKey);
+        console.log(`[Redis Confirm] Saved booking to set ${bookedKey} and released lock ${lockKey}`);
+      } catch (redisErr) {
+        console.error('Redis confirmed state update failed:', redisErr);
+      }
+    }
+
+    // 5. Delete PostgreSQL fallback lock
     await query(
       'DELETE FROM temporary_locks WHERE slot_id = $1 AND booking_date = $2::date AND booking_hour = $3',
       [slotUuid, dateString, hour]
     );
 
-    // 5. Trigger webhook for real-time updates
+    // 6. Trigger webhook for real-time updates
     await triggerBookingWebhook({
       slotid, hour, email, date: dateString, location,
     });

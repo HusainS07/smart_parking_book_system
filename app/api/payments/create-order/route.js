@@ -4,20 +4,12 @@ import Razorpay from 'razorpay';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { query } from '@/lib/db'; // PostgreSQL helper
+import redis from '@/lib/redis';
 
 /**
  * POST /api/payments/create-order
  *
  * Expected body: { slotid, amount, date, hour }
- *
- * Flow:
- *  1️⃣ Validate session & payload
- *  2️⃣ Verify slot exists (parking_slots)
- *  3️⃣ Insert a row into temporary_locks with a 5‑minute TTL.
- *     - Unique constraint (slot_id, booking_date, booking_hour) guarantees
- *       only one concurrent checkout per slot/hour.
- *  4️⃣ Create Razorpay order.
- *  5️⃣ Return order details.
  */
 export async function POST(req) {
   try {
@@ -42,9 +34,7 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Invalid hour (must be 0‑23)' }, { status: 400 });
     }
 
-    // ------------------------------------------------------------
     // 1️⃣ Verify slot exists and fetch its internal UUID
-    // ------------------------------------------------------------
     const slotResult = await query(
       'SELECT id FROM parking_slots WHERE slotid = $1',
       [slotid]
@@ -55,20 +45,48 @@ export async function POST(req) {
     }
     const slotUuid = slotResult.rows[0].id;
 
-    // ------------------------------------------------------------
-    // 2️⃣ Attempt to acquire a temporary lock (5‑minute TTL)
-    // ------------------------------------------------------------
-    const lockInsert = `
-      INSERT INTO temporary_locks (slot_id, booking_date, booking_hour, expires_at)
-      VALUES ($1, $2::date, $3, now() + interval '5 minutes')
-      ON CONFLICT DO NOTHING
-      RETURNING id;
-    `;
-    const lockResult = await query(lockInsert, [slotUuid, dateString, hour]);
-    if (lockResult.rowCount === 0) {
-      // A lock already exists – another checkout is in progress
-      console.warn('⚠️ Booking already being processed for', { slotid, dateString, hour });
-      return NextResponse.json({ error: 'This booking is currently being processed' }, { status: 409 });
+    // 2️⃣ Attempt to acquire lock (Redis first, fallback to DB if Redis offline)
+    let lockAcquired = false;
+
+    if (redis) {
+      try {
+        const bookedKey = `booked:${slotUuid}:${dateString}`;
+        const lockKey = `lock:${slotUuid}:${dateString}:${hour}`;
+
+        // Check if already booked
+        const isBooked = await redis.sismember(bookedKey, hour);
+        if (isBooked) {
+          return NextResponse.json({ error: 'This time slot is already booked' }, { status: 409 });
+        }
+
+        // Try to acquire 5-minute lock (300 seconds)
+        const acquired = await redis.set(lockKey, session.user.email, { nx: true, ex: 300 });
+        if (acquired) {
+          lockAcquired = true;
+          console.log(`[Redis Lock] Lock acquired for slot ${slotid} on ${dateString} at hour ${hour}`);
+        } else {
+          console.warn('⚠️ Redis Lock: Booking already being processed for', { slotid, dateString, hour });
+          return NextResponse.json({ error: 'This booking is currently being processed by another user' }, { status: 409 });
+        }
+      } catch (redisErr) {
+        console.error('Redis lock acquisition failed, falling back to DB lock:', redisErr);
+      }
+    }
+
+    if (!lockAcquired) {
+      // Fallback: database temporary locks table
+      const lockInsert = `
+        INSERT INTO temporary_locks (slot_id, booking_date, booking_hour, expires_at)
+        VALUES ($1, $2::date, $3, now() + interval '5 minutes')
+        ON CONFLICT DO NOTHING
+        RETURNING id;
+      `;
+      const lockResult = await query(lockInsert, [slotUuid, dateString, hour]);
+      if (lockResult.rowCount === 0) {
+        console.warn('⚠️ DB Lock: Booking already being processed for', { slotid, dateString, hour });
+        return NextResponse.json({ error: 'This booking is currently being processed' }, { status: 409 });
+      }
+      console.log(`[DB Lock] Lock acquired in PostgreSQL for slot ${slotid} on ${dateString} at hour ${hour}`);
     }
 
     // ------------------------------------------------------------

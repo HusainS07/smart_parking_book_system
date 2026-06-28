@@ -17,12 +17,12 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://apis.google.com",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://apis.google.com https://checkout.razorpay.com",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
-              "img-src 'self' data: https: blob:",
+              "img-src 'self' data: https: blob: https://*.razorpay.com",
               "connect-src 'self' https: wss:",
-              "frame-src 'self' https://accounts.google.com",
+              "frame-src 'self' https://accounts.google.com https://api.razorpay.com https://checkout.razorpay.com",
             ].join('; '),
           },
           // Disable browser features you don't use

@@ -1,18 +1,19 @@
 
-import { fetchSlots, fetchWallet } from '@/lib/slotfetch';
+import { fetchSlots } from '@/lib/slotfetch';
+import { query } from '@/lib/db';
 import BookClient from './BookClient';
 import { getServerSession } from 'next-auth';
 
 // Metadata for SEO
 export async function generateMetadata({ searchParams }) {
-  const location = await searchParams.location || 'mumbai';
+  const params = await searchParams;
+  const location = params.location || 'mumbai';
   const capitalizedLocation = location.charAt(0).toUpperCase() + location.slice(1);
 
   return {
     title: `Book Parking Slots in ${capitalizedLocation} | Parking App`,
     description: `Find and book parking slots in ${capitalizedLocation} with ease. Choose from available slots, pay via wallet or UPI, and reserve your spot instantly.`,
     keywords: `parking, ${location}, book parking, parking slots, ${capitalizedLocation} parking`,
-    viewport: 'width=device-width, initial-scale=1.0',
     openGraph: {
       title: `Book Parking Slots in ${capitalizedLocation}`,
       description: `Reserve parking slots in ${capitalizedLocation} with our easy-to-use app. Pay securely with wallet or UPI.`,
@@ -39,6 +40,11 @@ export async function generateMetadata({ searchParams }) {
   };
 }
 
+// Separate viewport export as required by Next.js 15
+export function generateViewport() {
+  return { width: 'device-width', initialScale: 1 };
+}
+
 // Pre-render static paths for locations
 export async function generateStaticParams() {
   return [
@@ -52,7 +58,8 @@ export async function generateStaticParams() {
 export const revalidate = 3600; // Revalidate every hour
 
 export default async function BookPage({ searchParams }) {
-  const location = await searchParams.location || 'mumbai';
+  const params = await searchParams;
+  const location = params.location || 'mumbai';
   const session = await getServerSession();
   let slots = [];
   let currentHour = parseInt(new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour: 'numeric', hour12: false }));
@@ -71,7 +78,10 @@ export default async function BookPage({ searchParams }) {
 
   if (session?.user?.email) {
     try {
-      wallet = await fetchWallet(session.user.email);
+      const walletRes = await query('SELECT balance FROM wallets WHERE email = $1', [session.user.email]);
+      if (walletRes.rowCount > 0) {
+        wallet = parseFloat(walletRes.rows[0].balance);
+      }
       console.log(`Server: Fetched wallet balance: ₹${wallet} for ${session.user.email}`);
     } catch (err) {
       // Log wallet error but don't set UI error, rely on client-side fetch

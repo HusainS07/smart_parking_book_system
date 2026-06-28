@@ -763,181 +763,28 @@ const handleUPIBooking = async (slot) => {
                       </div>
                     </div>
 
-                    {/* Booking Interface */}
-                    {selectedSlot === slot._id ? (
-                      <div className="space-y-3 pt-4 border-t border-gray-100">
-                        <div className="relative">
-                          <label
-                            htmlFor={`time-slot-${slot._id}`}
-                            className="block text-sm font-semibold text-gray-700 mb-2"
-                          >
-                            Select Time Slot
-                          </label>
-                          <select
-                            id={`time-slot-${slot._id}`}
-                            className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-700 font-medium focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150 appearance-none cursor-pointer"
-                            value={selectedHour ?? ""}
-                            onChange={(e) =>
-                              setSelectedHour(Number(e.target.value))
-                            }
-                            aria-label="Select booking hour"
-                          >
-                            <option value="">🕓 Select Time</option>
-                            {hourOptions.map((h) => {
-                              const isDisabled =
-                                bookedHoursToday.includes(h) ||
-                                h < currentHourState;
-                              return (
-                                <option
-                                  key={h}
-                                  value={h}
-                                  disabled={isDisabled}
-                                  className={
-                                    isDisabled
-                                      ? "text-gray-400"
-                                      : "text-gray-700"
-                                  }
-                                >
-                                  {`${h}:00–${h + 1}:00`}
-                                  {isDisabled
-                                    ? bookedHoursToday.includes(h)
-                                      ? " (Booked)"
-                                      : " (Expired)"
-                                    : ""}
-                                </option>
-                              );
-                            })}
-                          </select>
-                        </div>
-
-                        <button
-                          className="w-full bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white font-semibold py-2.5 rounded-lg transition-all duration-150 flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
-                          onClick={() => handleWalletBooking(slot)}
-                          aria-label={`Book slot ${slot.slotid} with wallet`}
-                        >
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                            aria-hidden="true"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-                            />
-                          </svg>
-                          Pay with Wallet
-                        </button>
-
-                        <button
-                          className={`w-full font-semibold py-2.5 rounded-lg transition-all duration-150 flex items-center justify-center gap-2 shadow-sm
-    ${
-      paymentLoading
-        ? "bg-gray-400 cursor-not-allowed"
-        : "bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 hover:shadow-md"
-    } text-white`}
-                          onClick={() => handleUPIBooking(slot)}
-                          disabled={paymentLoading}
-                          aria-label={`Book slot ${slot.slotid} with UPI`}
-                        >
-                          {paymentLoading ? (
-                            <>
-                              <svg
-                                className="w-4 h-4 animate-spin"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                              >
-                                <circle
-                                  className="opacity-25"
-                                  cx="12"
-                                  cy="12"
-                                  r="10"
-                                  stroke="currentColor"
-                                  strokeWidth="4"
-                                />
-                                <path
-                                  className="opacity-75"
-                                  fill="currentColor"
-                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                />
-                              </svg>
-                              Processing Payment...
-                            </>
-                          ) : (
-                            <>
-                              <svg
-                                className="w-4 h-4"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                                aria-hidden="true"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth="2"
-                                  d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                                />
-                              </svg>
-                              Pay Online (Netbanking)
-                            </>
-                          )}
-                        </button>
- 
-                        <button
-                          className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2.5 rounded-lg transition-all duration-150 flex items-center justify-center gap-2"
-                          onClick={() => {
-                            setSelectedSlot(null);
-                            setSelectedHour(null);
-                          }}
-                          aria-label="Cancel booking"
-                        >
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                            aria-hidden="true"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M6 18L18 6M6 6l12 12"
-                            />
-                          </svg>
-                          Cancel
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-semibold py-2.5 rounded-lg transition-all duration-150 flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
-                        onClick={() => {
-                          setSelectedSlot(slot._id);
-                          setSelectedHour(null);
-                        }}
-                        aria-label={`Book slot ${slot.slotid}`}
+                    {/* Redirect to individual slot detail page */}
+                    <button
+                      className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-semibold py-2.5 rounded-lg transition-all duration-150 flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
+                      onClick={() => router.push(`/book/${slot._id}`)}
+                      aria-label={`View availability for slot ${slot.slotid}`}
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
                       >
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                          aria-hidden="true"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                          />
-                        </svg>
-                        Book This Slot
-                      </button>
-                    )}
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                        />
+                      </svg>
+                      Select & Book
+                    </button>
                   </div>
                 </div>
               );
