@@ -1,15 +1,15 @@
 # 🏛️ Smart Parking System — Architecture, Flows & Security Guide
 
-This document provides a detailed breakdown of how the authentication, booking transactions, payment gateway, rate limiting, and security mechanisms are designed and integrated within the application.
+This document provides a detailed breakdown of the system architecture, authentication, caching strategy, booking transactions, payment gateway integration, rate limiting, and security mechanisms designed and integrated within the application.
 
 ---
 
 ## 📋 Table of Contents
 1. [🔐 Authentication & Session Flow](#1-authentication--session-flow)
-2. [💳 Booking, Payment & Webhook Flow](#2-booking-payment--webhook-flow)
-3. [⚡ Edge-Layer & API Rate Limiting](#3-edge-layer--api-rate-limiting)
-4. [🐘 PostgreSQL ACID Transaction Locking](#4-postgresql-acid-transaction-locking)
-5. [🛠️ Architectural Design Decisions](#5-architectural-design-decisions)
+2. [🚗 The Booking & Payment Lifecycle (Search to Success)](#2-the-booking--payment-lifecycle-search-to-success)
+3. [⚡ Redis Caching Strategy & Data Structures](#3-redis-caching-strategy--data-structures)
+4. [🐘 PostgreSQL Concurrency, Transactions & Locking](#4-postgresql-concurrency-transactions--locking)
+5. [📊 Operations & Time Complexity Analysis](#5-operations--time-complexity-analysis)
 6. [🛡️ Cyber-Attack Defense Mechanisms](#6-cyber-attack-defense-mechanisms)
 
 ---
@@ -17,7 +17,7 @@ This document provides a detailed breakdown of how the authentication, booking t
 ## 1. 🔐 Authentication & Session Flow
 
 The application utilizes **NextAuth.js** (v4) to manage user identity. It supports three authentication channels:
-1. **Credentials Provider:** Conventional email & password credentials verification.
+1. **Credentials Provider:** Conventional email & password verification.
 2. **Google OAuth 2.0:** Single sign-on authentication through Google.
 3. **GitHub OAuth 2.0:** Single sign-on authentication through GitHub.
 
@@ -54,154 +54,192 @@ sequenceDiagram
 
 ---
 
-## 2. 💳 Booking, Payment & Webhook Flow
+## 2. 🚗 The Booking & Payment Lifecycle (Search to Success)
 
-When booking a slot, the system supports payment via a digital wallet (pre-credited via administrative approval) or direct card transaction using the Razorpay gateway.
+The slot booking process consists of three main phases: **Search & Discovery**, **Slot Selection & Availability**, and the **Booking Transaction** (via digital Wallet or Online UPI/Card payment).
 
-### 🔄 The Order & Booking Lifecycle
+### 🔄 End-to-End Booking Sequence
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor User as User Browser
-    participant API as Booking API
-    participant DB as PostgreSQL Database
+    participant Client as Frontend (React)
+    participant API as Next.js API Routes
+    participant Redis as Upstash Redis
+    participant DB as PostgreSQL (Supabase)
     participant RP as Razorpay API
-    participant WH as Webhook API
+    participant Pusher as Pusher Webhook
 
-    User->>API: POST /api/payments/create-order (amount)
-    API->>RP: Create order request
-    RP-->>API: Return order_id
-    API-->>User: Send order metadata to frontend
-    User->>RP: Complete payment (on client widget)
-    RP-->>User: Payment success metadata (payment_id)
-    User->>API: POST /api/slots/book (slot_id, hour, date, payment_id)
-    
-    Note over API: Start ACID Transaction
-    API->>DB: SELECT id FROM parking_slots WHERE slotid = $1
-    API->>DB: Check if slot already booked
-    API->>DB: INSERT INTO bookings
-    API->>DB: DELETE FROM temporary_locks
-    Note over API: Commit ACID Transaction
-    
-    API->>WH: Trigger webhook endpoint
-    WH-->>User: Pusher real-time UI refresh (Updated booking grids)
+    %% Phase 1: Search & Discovery
+    rect rgb(240, 248, 255)
+        note right of User: Phase 1: Search & Discovery
+        User->>Client: Search location (e.g., "Mumbai")
+        Client->>API: GET /api/slots?location=mumbai
+        API->>Redis: GET slots:static:mumbai
+        alt Redis Hit
+            Redis-->>API: Return cached slots layout
+        else Redis Miss
+            API->>DB: SELECT slots & lots (JOIN)
+            DB-->>API: Return slot rows
+            API->>Redis: SET slots:static:mumbai (TTL 24h)
+        end
+        API-->>Client: Return slots layout
+    end
+
+    %% Phase 2: Slot Selection & Availability
+    rect rgb(255, 245, 230)
+        note right of User: Phase 2: Slot Selection & Availability
+        User->>Client: Select Slot (e.g., A1) & Date
+        Client->>API: GET /api/slots/A1/availability?date=YYYY-MM-DD
+        API->>Redis: SMEMBERS booked:slotUuid:date
+        alt Redis Hit (Key Exists)
+            Redis-->>API: Return booked hours set
+        else Redis Miss
+            API->>DB: SELECT booking_hour FROM bookings
+            DB-->>API: Return booked hours
+            API->>Redis: SADD booked:slotUuid:date (TTL 24h)
+        end
+        API-->>Client: Return booked & available hours
+    end
+
+    %% Phase 3: Booking & Payment Checkout
+    rect rgb(245, 255, 250)
+        note right of User: Phase 3: Booking & Payment Checkout
+        User->>Client: Select Hour (e.g., 14:00) & Click Book
+        
+        alt Option A: Wallet Payment
+            User->>Client: Click "Pay with Wallet"
+            Client->>API: POST /api/wallet/deduct (amount)
+            API->>DB: SELECT balance FROM wallets FOR UPDATE
+            DB-->>API: Return balance
+            alt Sufficient Balance
+                API->>DB: UPDATE wallets SET balance = newBalance
+                DB-->>API: Success
+                API-->>Client: 200 OK (new balance)
+            else Insufficient
+                API-->>Client: 400 Bad Request
+            end
+            
+            Client->>API: POST /api/slots/book (slotid, hour, date)
+            API->>DB: INSERT INTO bookings (Unique Constraint Check)
+            DB-->>API: Success
+            API->>Redis: SADD booked:slotUuid:date [hour]
+            API->>Redis: DEL lock:slotUuid:date:hour (if any)
+            API->>Pusher: Trigger Booking Webhook
+            Pusher-->>User: Broadcast updated grid (Real-time UI refresh)
+            API-->>Client: 200 OK (Booking Successful)
+            
+        else Option B: Online Payment (Razorpay)
+            User->>Client: Click "Pay Online"
+            Client->>API: POST /api/payments/create-order (slotid, date, hour)
+            
+            %% Locking Mechanism
+            API->>Redis: SET lock:slotUuid:date:hour (NX, EX 300s)
+            alt Redis Lock Acquired
+                Redis-->>API: Success (Lock held)
+            else Redis Lock Failed / Offline
+                API->>DB: INSERT INTO temporary_locks (ON CONFLICT DO NOTHING)
+                DB-->>API: Row count > 0 (Lock held) or 0 (Fail)
+            end
+            
+            alt Lock Acquisition Successful
+                API->>RP: Create order (amount)
+                RP-->>API: Return order_id
+                API-->>Client: 200 OK (orderId)
+                Client->>RP: Open Razorpay checkout widget
+                
+                alt User Completes Payment
+                    RP-->>Client: Payment success (payment_id)
+                    Client->>API: POST /api/slots/book (slotid, hour, date, payment_id)
+                    API->>DB: INSERT INTO bookings
+                    DB-->>API: Success
+                    API->>Redis: SADD booked:slotUuid:date [hour]
+                    API->>Redis: DEL lock:slotUuid:date:hour
+                    API->>DB: DELETE FROM temporary_locks
+                    API->>Pusher: Trigger Booking Webhook
+                    Pusher-->>User: Broadcast updated grid (Real-time UI refresh)
+                    API-->>Client: 200 OK (Booking Successful)
+                else User Cancels / Payment Fails
+                    Client->>API: POST /api/payments/cancel-order
+                    API->>Redis: DEL lock:slotUuid:date:hour
+                    API->>DB: DELETE FROM temporary_locks
+                    API-->>Client: 200 OK (Lock Released)
+                end
+            else Lock Acquisition Failed
+                API-->>Client: 409 Conflict (Already being processed)
+            end
+        end
+    end
 ```
-
-### 💳 Webhook Handling:
-* Live status checks use **Pusher** webhooks to instantly notify other connected clients when a slot gets reserved. This prevents two different users from viewing a slot as "available" at the same time.
 
 ---
 
-## 3. ⚡ Edge-Layer & API Rate Limiting
+## 3. ⚡ Redis Caching Strategy & Data Structures
 
-Serverless environments require defensive rate limiting to prevent bots from crashing APIs or causing massive execution cost spikes.
+To handle high traffic, prevent double-bookings, and minimize database load, the system utilizes **Upstash Redis** (via HTTP REST to prevent connection exhaustion in serverless environments).
 
-### 🛡️ Two-Tiered Defense:
+### 🗃️ Redis Data Structures Used
 
-```
-                  ┌──────────────────────────────┐
-                  │      Incoming API Request    │
-                  └──────────────┬───────────────┘
-                                 │
-                 Is path "/api/auth/callback"?
-                                 │
-                   ┌─────────────┴─────────────┐
-                  Yes                          No
-                   │                           │
-         ┌─────────▼─────────┐       ┌─────────▼─────────┐
-         │  middleware.js    │       │  lib/ratelimit.js │
-         │  (Vercel Edge)    │       │  (Next.js Route)  │
-         └─────────┬─────────┘       └─────────┬─────────┘
-                   │                           │
-                   └─────────────┬─────────────┘
-                                 │
-                   ┌─────────────▼─────────────┐
-                   │  Redis REST Check (incr)  │
-                   └─────────────┬─────────────┘
-                                 │
-                       Allowed / Blocked?
-                                 │
-                   ┌─────────────┴─────────────┐
-                 Yes                          No
-                   │                           │
-          ┌────────▼─────────┐        ┌────────▼─────────┐
-          │ Execute Endpoint │        │   Return HTTP    │
-          │     & DB Query   │        │   429 Too Many   │
-          └──────────────────┘        └──────────────────┘
-```
-
-1. **Edge-Layer Middleware (`middleware.js`):**
-   * Placed in front of `/api/auth/callback/credentials` to catch login brute-forcing.
-   * Runs at the CDN edge level using Vercel Edge Runtime. It executes in milliseconds, validating the rate-limit state in Redis before the serverless API container even starts up.
-   * Limit: **10 attempts / 15 minutes** per IP.
-
-2. **Route-Level Rate Limiter (`lib/ratelimiter.js`):**
-   * Placed inside API routes like `/api/register`, `/api/contact` and `/api/lots`.
-   * Limit examples: **5 attempts / 10 minutes** for registration; **5 attempts / 15 minutes** for RAG chatbot support.
-
-### 🔌 Why Upstash Redis?
-Unlike traditional Redis which keeps long-running TCP sockets open (which fails or exhausts resources under serverless scaling), Upstash handles database queries over HTTP REST requests. This allows the system to remain highly performant even under spikes of traffic.
+| Redis Key Pattern | Data Structure | Purpose | TTL | Why it is Fast |
+|:---|:---|:---|:---|:---|
+| `slots:static:${location}` | **String (JSON)** | Caches the static layout, names, addresses, and pricing of slots in a city. | 24 Hours (`86400s`) | **In-memory Key-Value Lookup ($O(1)$):** Avoids performing heavy SQL `LEFT JOIN` operations between `parking_slots` and `parking_lots` on every search. |
+| `booked:${slotUuid}:${date}` | **Set (integers)** | Stores the hour blocks (0–23) already booked for a specific slot on a specific date. | 24 Hours (`86400s`) | **In-memory Set Operations ($O(1)$):** Checking if a slot is booked (`SISMEMBER`) or retrieving all booked hours (`SMEMBERS`) is extremely fast, bypassing SQL index scans. |
+| `lock:${slotUuid}:${date}:${hour}` | **String** | Acts as a short-lived distributed lock for a specific slot hour during payment checkout. | 5 Minutes (`300s`) | **Atomic Key Writing ($O(1)$):** Uses the `NX` (Set-If-Not-Exists) and `EX` (Expiration) flags to guarantee atomic lock acquisition at the application layer. |
 
 ---
 
-## 4. 🐘 PostgreSQL Concurrency & Locking Mechanics
+## 4. 🐘 PostgreSQL Concurrency, Transactions & Locking
 
-Your system uses a **two-phase locking strategy** to guarantee that slots are held during checkout and successfully booked without double bookings. 
+While Redis provides high-performance caching and fast rate limiting, **PostgreSQL (Supabase)** acts as the single source of truth, enforcing ACID guarantees and data consistency.
 
----
+### 🔒 Two-Phase Locking Strategy
 
-### Phase A: The 5-Minute Checkout Hold (Persistent DB Table)
-When a user clicks "Book" and is redirected to the Razorpay widget, we need to temporarily reserve the slot for **5 minutes** so no one else can purchase it.
-
-* **Why we do NOT use raw in-memory locks here:**
-  If we used a database transaction block (`BEGIN` ... `FOR UPDATE`) and kept it open for 5 minutes waiting for the user to type their card details, we would hold a PostgreSQL connection open. This would quickly starve the server's connection pool, block all other database queries, and crash the website under load.
+#### Phase A: The 5-Minute Checkout Hold (Pessimistic/Distributed Lock)
+When a user clicks "Pay Online" and is redirected to the Razorpay widget, we must temporarily reserve the slot for **5 minutes** so no one else can purchase it.
+* **The Serverless Constraint:** We cannot keep a PostgreSQL transaction block (`BEGIN` ... `FOR UPDATE`) open for 5 minutes waiting for the user to type their card details. Doing so would starve the database connection pool, block all other database queries, and crash the system.
 * **The Solution:** 
-  We write a short-lived row to the `temporary_locks` table containing a `booking_date`, `booking_hour`, and an `expires_at` timestamp set to `now() + interval '5 minutes'`.
-  * A database unique constraint on `(slot_id, booking_date, booking_hour)` ensures that only one checkout hold can exist at a time.
-  * An automated background check / cleanup query purges expired locks regularly.
+  1. We first try to write a lock in Redis using `redis.set(lockKey, email, { nx: true, ex: 300 })`.
+  2. If Redis is offline, we fall back to writing a row in the `temporary_locks` table containing `slot_id`, `booking_date`, `booking_hour`, and `expires_at` (set to `now() + interval '5 minutes'`).
+  3. A database unique constraint on `(slot_id, booking_date, booking_hour)` ensures that only one checkout hold can exist. If a duplicate insert is attempted, PostgreSQL rejects it (`ON CONFLICT DO NOTHING`), returning a `409 Conflict` to the second user.
+  4. If the payment is completed, the lock is deleted. If the payment is cancelled, the lock is deleted. If the user abandons the checkout, the Redis lock automatically expires in 5 minutes, and any PostgreSQL fallback lock row is ignored or purged.
+
+#### Phase B: Uniqueness Constraints & Row-Level Locking
+Once the payment succeeds, the booking is confirmed and inserted. This query completes in **milliseconds** and relies on PostgreSQL's index locks and transaction safety:
+
+1. **Unique Index Constraint:**
+   The `bookings` table has a unique composite index on:
+   ```sql
+   UNIQUE (slot_id, booking_date, booking_hour)
+   ```
+   If two concurrent booking requests bypass the application layer locks (e.g., during extreme network latency), the database engine uses its internal B-Tree index locks to serialize the insertions. The first insertion succeeds, and the second fails with a unique key violation, triggering a clean rollback.
+
+2. **Wallet Balance Deduction (Double-Spend Protection):**
+   To prevent a user from double-spending their wallet balance via rapid concurrent clicks, the balance deduction should be wrapped in a transaction with row-level locking:
+   ```sql
+   BEGIN;
+   -- Lock the wallet row for this user in PG shared memory
+   SELECT balance FROM wallets WHERE email = $1 FOR UPDATE;
+   -- Perform validation and update
+   UPDATE wallets SET balance = $2 WHERE email = $1;
+   COMMIT;
+   ```
+   The `FOR UPDATE` clause ensures that any concurrent transaction trying to read or write the same wallet row is blocked until the first transaction commits, preventing race conditions.
 
 ---
 
-### Phase B: Instantaneous Row-Level Locking (`FOR UPDATE` in shared RAM)
-Once the payment succeeds, the application executes the booking insertion. This query is completed in **milliseconds** and uses PostgreSQL's native transaction block and **in-memory row-level locks**.
+## 5. 📊 Operations & Time Complexity Analysis
 
-When a user submits `/api/slots/book`, the database execution is wrapped in a strict transaction:
+Below is the time complexity breakdown of the operations involved in the booking pipeline:
 
-```sql
-BEGIN;
-
--- 1. Check if the slot and hour are already booked, locking the row in PG shared memory
-SELECT id 
-FROM bookings 
-WHERE slot_id = $1 AND booking_date = $2::date AND booking_hour = $3 
-FOR UPDATE;
-
--- 2. If rowcount is 0, safely insert the confirmed booking
-INSERT INTO bookings (slot_id, booking_hour, email, booking_date, payment_id)
-VALUES ($1, $2, $3, $4::date, $5);
-
--- 3. Delete the temporary checkout hold row
-DELETE FROM temporary_locks 
-WHERE slot_id = $1 AND booking_date = $2::date AND booking_hour = $3;
-
-COMMIT;
-```
-
-### 🔒 Key Safeguards in Phase B:
-* **`FOR UPDATE` (In-Memory Locking):** This locks the matching rows in PostgreSQL's shared memory (RAM). If two checkout webhooks hit the server at the exact same millisecond, the first query blocks the second until the first transaction commits.
-* **Double Booking Prevention:** Once the first transaction commits, the second transaction sees the slot is already booked and fails validation, rolling back cleanly without corrupting database integrity.
-
----
-
-## 5. 🛠️ Architectural Design Decisions
-
-| Challenge | Old Approach | New Optimized Approach | Why? |
-|-----------|--------------|------------------------|------|
-| **DB Performance** | MongoDB Mongoose queries | Raw parameterized queries | Bypasses ORM bootstrap times. Decreases serverless boot latency. |
-| **Double Bookings** | Redis-based queues | PostgreSQL Row Locking | Eliminates dependency on external queues for data consistency. Relies on DB constraints. |
-| **Tab-switching Latency** | Re-fetch API endpoints on tab clicks | Client-side page states | Caches active UI tabs (`hasLoadedBookings`) so navigating does not trigger duplicate SQL query execution. |
-| **Serverless Connections** | Persistent Redis connections | REST HTTP Redis (Upstash) | Avoids connection exhaustion under serverless edge runtime. |
+| Step | Operation | Target Store | Query / Command | Time Complexity | Rationale |
+|:---|:---|:---|:---|:---|:---|
+| **1. Search** | Search Slots by City | Redis (Hit)<br>PostgreSQL (Miss) | `GET slots:static:location`<br>`SELECT ... WHERE location = $1` | $O(1)$<br>$O(\log M + N)$ | Redis lookup is $O(1)$. DB lookup uses a B-tree index on `location` ($O(\log M)$ where $M$ is total slots) and returns $N$ slots. |
+| **2. Select** | Get Booked Hours | Redis (Hit)<br>PostgreSQL (Miss) | `SMEMBERS booked:slotUuid:date`<br>`SELECT booking_hour WHERE ...` | $O(1)$<br>$O(\log B + K)$ | Redis set retrieval is $O(K)$ where $K \le 24$ (effectively $O(1)$). DB uses index scan on `(slot_id, date)` ($O(\log B)$ where $B$ is total bookings). |
+| **3. Lock** | Acquire Checkout Lock | Redis (Primary)<br>PostgreSQL (Fallback) | `SET lock:key email NX EX 300`<br>`INSERT INTO temporary_locks` | $O(1)$<br>$O(\log L)$ | Redis `SET NX` is atomic $O(1)$. PostgreSQL insert checks unique index constraint ($O(\log L)$ where $L$ is active locks). |
+| **4. Deduct** | Wallet Balance Update | PostgreSQL | `SELECT ... FOR UPDATE`<br>`UPDATE wallets` | $O(\log W)$ | B-Tree index lookup on `email` ($O(\log W)$ where $W$ is total wallets) with a row-level write lock. |
+| **5. Confirm**| Insert Final Booking | PostgreSQL | `INSERT INTO bookings` | $O(\log B)$ | Inserts row and updates the unique composite index ($O(\log B)$). |
+| **6. Publish**| Real-time UI Update | Pusher | Trigger Webhook Event | $O(1)$ | Non-blocking HTTP POST request to Pusher API. |
 
 ---
 
